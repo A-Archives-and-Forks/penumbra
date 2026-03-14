@@ -8,6 +8,7 @@ use log::{debug, error, info, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::connection::Connection;
+use crate::connection::port::ConnectionType;
 use crate::core::auth::{AuthManager, SignData, SignPurpose, SignRequest};
 use crate::core::devinfo::DeviceInfo;
 use crate::core::emi::extract_emi_settings;
@@ -131,8 +132,7 @@ impl XFlash {
         // log level to DEBUG and try to send EMI settings in BROM mode, the DA hangs. This
         // appears to be a MediaTek quirk as usual. As a workaround, we always use INFO
         // level when in BROM mode, even if verbose logging is requested.
-        let da_log_level: u32 = if self.verbose
-            && self.conn.connection_type != crate::connection::port::ConnectionType::Brom
+        let da_log_level: u32 = if self.verbose && self.conn.connection_type != ConnectionType::Brom
         {
             1 // DEBUG
         } else {
@@ -402,11 +402,21 @@ impl XFlash {
             ));
         }
 
+        const HEADER: usize = 4;
+        const RND_LEN: usize = 0x10;
+        const HRID_LEN: usize = 0x10;
+        const SOC_ID_LEN: usize = 0x20;
+
         let firmware_info = self.devctrl(Cmd::GetDevFwInfo, None).await?;
         debug!("Firmware Info: {:02X?}", firmware_info);
-        let rnd = &firmware_info[4..4 + 0x10];
-        let hrid = &firmware_info[4 + 0x10..4 + 0x10 + 16];
-        let soc_id = &firmware_info[4 + 0x10 + 16..4 + 0x10 + 16 + 32];
+
+        let rnd = &firmware_info[HEADER..HEADER + RND_LEN];
+
+        let hrid = firmware_info.get(HEADER + RND_LEN..HEADER + RND_LEN + HRID_LEN).unwrap_or(&[]);
+
+        let soc_id = firmware_info
+            .get(HEADER + RND_LEN + HRID_LEN..HEADER + RND_LEN + HRID_LEN + SOC_ID_LEN)
+            .unwrap_or(&[]);
 
         let sign_data = SignData {
             rnd: rnd.to_vec(),
