@@ -22,12 +22,12 @@ pub async fn parse_seccfg(xflash: &mut XFlash) -> Option<SecCfgV4> {
 
     let mut parsed_seccfg = SecCfgV4::parse_header(&seccfg_header).ok()?;
     let hash = parsed_seccfg.get_encrypted_hash();
-    for algo in [SecCfgV4Algo::SW, SecCfgV4Algo::HW, SecCfgV4Algo::HWv3, SecCfgV4Algo::HWv4] {
+    for algo in [SecCfgV4Algo::SW, SecCfgV4Algo::HWv3, SecCfgV4Algo::HWv4, SecCfgV4Algo::HW] {
         let dec_hash = match algo {
             SecCfgV4Algo::SW => sej(xflash, &hash, false, false, false, false).await.ok()?,
-            SecCfgV4Algo::HW => sej(xflash, &hash, false, false, true, true).await.ok()?,
             SecCfgV4Algo::HWv3 => sej(xflash, &hash, false, true, true, false).await.ok()?,
             SecCfgV4Algo::HWv4 => sej(xflash, &hash, false, false, true, false).await.ok()?,
+            SecCfgV4Algo::HW => sej(xflash, &hash, false, false, true, true).await.ok()?,
         };
         if dec_hash == parsed_seccfg.get_hash() {
             parsed_seccfg.set_algo(algo);
