@@ -5,6 +5,7 @@
 use log::debug;
 
 use crate::error::{Error, Result};
+use crate::utilities::hash::HashType;
 use crate::{le_u16, le_u32};
 
 /// Protocol used by the DA
@@ -264,6 +265,23 @@ impl DA {
                 None
             }
             _ => None,
+        }
+    }
+
+    pub fn get_hash_type(&self) -> HashType {
+        let Some(offset) = self.find_da_hash_offset() else {
+            return HashType::Unknown;
+        };
+
+        // MD5 length = 16 bytes, SHA1 length = 20 bytes, SHA256 length = 32 bytes
+        let hash_data = &self.get_da1().unwrap().data[offset..];
+        let hash_len = hash_data.iter().position(|&b| b == 0).unwrap_or(hash_data.len());
+
+        match hash_len {
+            16 => HashType::Md5,
+            20 => HashType::Sha1,
+            32 => HashType::Sha256,
+            _ => HashType::Unknown,
         }
     }
 

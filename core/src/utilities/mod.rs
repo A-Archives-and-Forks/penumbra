@@ -5,6 +5,7 @@
 pub mod analysis;
 pub mod arm;
 pub mod arm64;
+pub mod hash;
 pub mod patching;
 pub mod rsa;
 pub mod xml;
