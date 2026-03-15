@@ -8,54 +8,15 @@ use log::{info, warn};
 use crate::da::{DA, DAEntryRegion, Xml};
 use crate::error::{Error, Result};
 use crate::exploit::get_v6_payload;
-use crate::le_u32;
 use crate::utilities::analysis::{Arch, ArchAnalyzer, create_analyzer};
 use crate::utilities::arm::{encode_bl_arm, force_return as arm_force_return};
 use crate::utilities::arm64::{encode_bl as arm64_encode_bl, force_return as arm64_force_return};
 use crate::utilities::patching::*;
 
-const SEJ_BASE_PATTERN_ARM64: &str = "0801XX52XX00805208XXXX72";
-const SEJ_BASE_PATTERN_ARM64_ALT: &str = "0901XX52XX031faa09XXXX72";
-const SEJ_BASE_PATTERN_ARM: &str = "0800XXE30210A0E3XXXX41E3";
 const EXTLOADER: &[u8] = include_bytes!("../../../payloads/extloader_v6.bin");
-
-pub fn detect_arch(data: &[u8]) -> bool {
-    data.len() > 4 && data[0..4] == [0xC6, 0x01, 0x00, 0x58]
-}
 
 pub fn to_arch(is_arm64: bool) -> Arch {
     if is_arm64 { Arch::Aarch64 } else { Arch::Arm }
-}
-
-pub fn find_sej_base(data: &[u8]) -> u32 {
-    let default_sej_base = 0x1000A000;
-
-    let is_arm64 = detect_arch(data);
-    let offset = if is_arm64 {
-        let off = find_pattern(data, SEJ_BASE_PATTERN_ARM64, 0);
-        if off == HEX_NOT_FOUND { find_pattern(data, SEJ_BASE_PATTERN_ARM64_ALT, 0) } else { off }
-    } else {
-        find_pattern(data, SEJ_BASE_PATTERN_ARM, 0)
-    };
-
-    if offset == HEX_NOT_FOUND {
-        warn!("Could not find SEJ base! Defaulting to 0x{:08X}", default_sej_base);
-        return default_sej_base;
-    }
-
-    if is_arm64 {
-        let mov = le_u32!(data, offset);
-        let movk = le_u32!(data, offset + 8);
-        let low = (mov >> 5) & 0xFFFF;
-        let high = (movk >> 5) & 0xFFFF;
-        ((high << 16) | low) & 0xFFFFF000
-    } else {
-        let movw = le_u32!(data, offset);
-        let movt = le_u32!(data, offset + 8);
-        let low = (((movw >> 16) & 0xF) << 12) | (movw & 0xFFF);
-        let high = (((movt >> 16) & 0xF) << 12) | (movt & 0xFFF);
-        ((high << 16) | low) & 0xFFFFF000
-    }
 }
 
 pub fn patch_da(_xml: &mut Xml) -> Result<DA> {
@@ -73,7 +34,7 @@ pub fn patch_da2(xml: &mut Xml) -> Result<DAEntryRegion> {
         .cloned()
         .ok_or_else(|| Error::penumbra("DA2 region not found for patching"))?;
 
-    let is_arm64 = detect_arch(&da2.data);
+    let is_arm64 = xml.da.is_arm64();
     let analyzer = create_analyzer(da2.data.clone(), da2.addr as u64, to_arch(is_arm64));
 
     patch_security(&mut da2, analyzer.as_ref(), is_arm64)?;
