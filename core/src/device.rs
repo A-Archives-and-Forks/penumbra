@@ -3,6 +3,8 @@
     SPDX-FileCopyrightText: 2025 Shomy
 */
 
+use std::io::{Read, Write};
+
 use log::{error, info, warn};
 
 use crate::connection::Connection;
@@ -400,12 +402,11 @@ impl Device {
     /// Reads data from a specified partition on the device.
     /// This function assumes the partition to be part of the user section.
     /// To read from other sections, use `read_offset` with appropriate address.
-    pub fn read_partition(
-        &mut self,
-        name: &str,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-        writer: &mut (dyn std::io::Write + Send),
-    ) -> Result<()> {
+    pub fn read_partition<W, F>(&mut self, name: &str, mut progress: F, mut writer: W) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let part = self
@@ -414,18 +415,22 @@ impl Device {
             .ok_or_else(|| Error::penumbra(format!("Partition '{}' not found", name)))?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.read_flash(part.address, part.size, part.kind, progress, writer)
+        protocol.read_flash(part.address, part.size, part.kind, &mut progress, &mut writer)
     }
 
     /// Writes data to a specified partition on the device.
     /// This function assumes the partition to be part of the user section.
     /// To write to other sections, use `write_offset` with appropriate address.
-    pub fn write_partition(
+    pub fn write_partition<R, F>(
         &mut self,
         name: &str,
-        reader: &mut (dyn std::io::Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let part = self
@@ -434,7 +439,7 @@ impl Device {
             .ok_or_else(|| Error::penumbra(format!("Partition '{}' not found", name)))?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.write_flash(part.address, part.size, reader, part.kind, progress)
+        protocol.write_flash(part.address, part.size, &mut reader, part.kind, &mut progress)
     }
 
     /// Erases a specified partition on the device.
@@ -490,18 +495,22 @@ impl Device {
     ///     .read_offset(0x0, 0x40000, PartitionKind::Emmc(EmmcPartition::Boot1), &mut progress)
     ///     .await?;
     /// ```
-    pub fn read_offset(
+    pub fn read_offset<W, F>(
         &mut self,
         address: u64,
         size: usize,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-        writer: &mut (dyn std::io::Write + Send),
-    ) -> Result<()> {
+        mut progress: F,
+        mut writer: W,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.read_flash(address, size, section, progress, writer)
+        protocol.read_flash(address, size, section, &mut progress, &mut writer)
     }
 
     /// Writes data to a specified offset and size on the device.
@@ -531,18 +540,22 @@ impl Device {
     ///     )
     ///     .await?;
     /// ```
-    pub fn write_offset(
+    pub fn write_offset<R, F>(
         &mut self,
         address: u64,
         size: usize,
-        reader: &mut (dyn std::io::Read + Send),
+        mut reader: R,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.write_flash(address, size, reader, section, progress)
+        protocol.write_flash(address, size, &mut reader, section, &mut progress)
     }
 
     /// Erases data at a specified offset and size on the device.
@@ -597,17 +610,21 @@ impl Device {
     /// let firmware_data = std::fs::read("logo.bin").expect("Failed to read firmware");
     /// device.download("logo", &firmware_data).await?;
     /// ```
-    pub fn download(
+    pub fn download<R, F>(
         &mut self,
         partition: &str,
         size: usize,
-        reader: &mut (dyn std::io::Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.download(partition.to_string(), size, reader, progress)
+        protocol.download(partition.to_string(), size, &mut reader, &mut progress)
     }
 
     /// Like `read_partition`, but instead of reading using offsets and sizes from GPT,
@@ -633,16 +650,15 @@ impl Device {
     /// let mut progress = |_written: usize, _total: usize| {};
     /// device.upload("logo", &mut writer, &mut progress).await?;
     /// ```
-    pub fn upload(
-        &mut self,
-        partition: &str,
-        writer: &mut (dyn std::io::Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+    pub fn upload<W, F>(&mut self, partition: &str, mut writer: W, mut progress: F) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.upload(partition.to_string(), writer, progress)
+        protocol.upload(partition.to_string(), &mut writer, &mut progress)
     }
 
     /// Formats a specified partition on the device
@@ -763,17 +779,21 @@ impl Device {
     /// device.peek(0x0010_0000, 0x1000, &mut writer, &mut progress).await?;
     /// ```
     #[cfg(not(feature = "no_exploits"))]
-    pub fn peek(
+    pub fn peek<W, F>(
         &mut self,
         addr: u32,
         size: usize,
-        writer: &mut (dyn std::io::Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut writer: W,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.peek(addr, size, writer, progress)
+        protocol.peek(addr, size, &mut writer, &mut progress)
     }
 
     /// Writes memory to the device at the given address and size.
@@ -799,47 +819,59 @@ impl Device {
     /// device.poke(0x0010_0000, 0x1000, &mut reader, &mut progress).await?;
     /// ```
     #[cfg(not(feature = "no_exploits"))]
-    pub fn poke(
+    pub fn poke<R, F>(
         &mut self,
         addr: u32,
         size: usize,
-        reader: &mut (dyn std::io::Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.poke(addr, size, reader, progress)
+        protocol.poke(addr, size, &mut reader, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    pub fn read_rpmb(
+    pub fn read_rpmb<W, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        writer: &mut (dyn std::io::Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut writer: W,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.read_rpmb(region, start_sector, sectors_count, writer, progress)
+        protocol.read_rpmb(region, start_sector, sectors_count, &mut writer, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    pub fn write_rpmb(
+    pub fn write_rpmb<R, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        reader: &mut (dyn std::io::Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         self.ensure_da_mode()?;
 
         let protocol = self.protocol.as_mut().unwrap();
-        protocol.write_rpmb(region, start_sector, sectors_count, reader, progress)
+        protocol.write_rpmb(region, start_sector, sectors_count, &mut reader, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]

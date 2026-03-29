@@ -10,12 +10,12 @@ use crate::da::{DownloadProtocol, Xml};
 
 pub fn parse_seccfg(xml: &mut Xml) -> Option<SecCfgV4> {
     let seccfg = xml.dev_info.get_partition("seccfg")?;
-    let mut progress = |_, _| {};
+    let progress = |_, _| {};
 
     let mut seccfg_header = Vec::with_capacity(seccfg.size);
     let mut cursor = Cursor::new(&mut seccfg_header);
 
-    xml.upload("seccfg".to_string(), &mut cursor, &mut progress).ok()?;
+    xml.upload("seccfg".to_string(), &mut cursor, progress).ok()?;
 
     // Cut to 200 bytes
     seccfg_header.truncate(200);
@@ -50,10 +50,10 @@ pub fn write_seccfg(xml: &mut Xml, seccfg: &mut SecCfgV4) -> Option<Vec<u8>> {
     seccfg.set_encrypted_hash(enc_hash);
     let seccfg_data = seccfg.create();
 
-    let mut progress = |_, _| {};
+    let progress = |_, _| {};
     let mut cursor = Cursor::new(&seccfg_data);
 
-    xml.download("seccfg".to_string(), 200, &mut cursor, &mut progress).ok()?;
+    xml.download("seccfg".to_string(), 200, &mut cursor, progress).ok()?;
 
     Some(seccfg_data)
 }

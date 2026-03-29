@@ -138,63 +138,76 @@ impl DownloadProtocol for Xml {
         Ok(())
     }
 
-    fn read_flash(
+    fn read_flash<W, F>(
         &mut self,
         addr: u64,
         size: usize,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-        writer: &mut (dyn Write + Send),
-    ) -> Result<()> {
+        progress: F,
+        writer: W,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         flash::read_flash(self, addr, size, section, writer, progress)
     }
 
-    fn write_flash(
+    fn write_flash<R, F>(
         &mut self,
         addr: u64,
         size: usize,
-        reader: &mut (dyn Read + Send),
+        reader: R,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
         flash::write_flash(self, addr, size, section, reader, progress)
     }
 
-    fn erase_flash(
+    fn erase_flash<F>(
         &mut self,
         addr: u64,
         size: usize,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
+        progress: F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, usize) + Send,
+    {
         flash::erase_flash(self, addr, size, section, progress)
     }
 
-    fn download(
+    fn download<R, F>(
         &mut self,
         part_name: String,
         size: usize,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        flash::download(self, part_name, size, reader, progress)
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        flash::download(self, part_name, size, &mut reader, &mut progress)
     }
 
-    fn upload(
-        &mut self,
-        part_name: String,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        flash::upload(self, part_name, writer, progress)
+    fn upload<W, F>(&mut self, part_name: String, mut writer: W, mut progress: F) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        flash::upload(self, part_name, &mut writer, &mut progress)
     }
 
-    fn format(
-        &mut self,
-        part_name: String,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        flash::format(self, part_name, progress)
+    fn format<F>(&mut self, part_name: String, mut progress: F) -> Result<()>
+    where
+        F: FnMut(usize, usize) + Send,
+    {
+        flash::format(self, part_name, &mut progress)
     }
 
     fn read32(&mut self, _addr: u32) -> Result<u32> {
@@ -252,11 +265,11 @@ impl DownloadProtocol for Xml {
 
         let sgpt = Partition::new("SGPT", gpt_size, user_size as u64 - gpt_size as u64, user_part);
 
-        let mut progress = |_, _| {};
+        let progress = |_, _| {};
 
         let mut pgpt_data = Vec::new();
         let mut pgpt_cursor = Cursor::new(&mut pgpt_data);
-        self.upload("PGPT".into(), &mut pgpt_cursor, &mut progress).ok();
+        self.upload("PGPT".into(), &mut pgpt_cursor, progress).ok();
         let parsed_gpt_parts =
             Gpt::parse(&pgpt_data, storage_type).map(|g| g.partitions()).unwrap_or_default();
 
@@ -265,7 +278,7 @@ impl DownloadProtocol for Xml {
         } else {
             let mut sgpt_data = Vec::new();
             let mut sgpt_cursor = Cursor::new(&mut sgpt_data);
-            self.upload("SGPT".into(), &mut sgpt_cursor, &mut progress).ok();
+            self.upload("SGPT".into(), &mut sgpt_cursor, progress).ok();
             Gpt::parse(&sgpt_data, storage_type).map(|g| g.partitions()).unwrap_or_default()
         };
 
@@ -290,49 +303,53 @@ impl DownloadProtocol for Xml {
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    fn peek(
-        &mut self,
-        addr: u32,
-        length: usize,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        exts::peek(self, addr, length, writer, progress)
+    fn peek<W, F>(&mut self, addr: u32, length: usize, mut writer: W, mut progress: F) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        exts::peek(self, addr, length, &mut writer, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    fn poke(
-        &mut self,
-        addr: u32,
-        length: usize,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        exts::poke(self, addr, length, reader, progress)
+    fn poke<R, F>(&mut self, addr: u32, length: usize, mut reader: R, mut progress: F) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        exts::poke(self, addr, length, &mut reader, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    fn read_rpmb(
+    fn read_rpmb<W, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        exts::read_rpmb(self, region, start_sector, sectors_count, writer, progress)
+        mut writer: W,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        exts::read_rpmb(self, region, start_sector, sectors_count, &mut writer, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]
-    fn write_rpmb(
+    fn write_rpmb<R, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()> {
-        exts::write_rpmb(self, region, start_sector, sectors_count, reader, progress)
+        mut reader: R,
+        mut progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send,
+    {
+        exts::write_rpmb(self, region, start_sector, sectors_count, &mut reader, &mut progress)
     }
 
     #[cfg(not(feature = "no_exploits"))]

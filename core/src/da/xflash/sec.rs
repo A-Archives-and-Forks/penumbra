@@ -12,13 +12,13 @@ pub fn parse_seccfg(xflash: &mut XFlash) -> Option<SecCfgV4> {
     let seccfg = xflash.dev_info.get_partition("seccfg")?;
     let section = xflash.get_storage()?.get_user_part();
 
-    let mut progress = |_, _| {};
+    let progress = |_, _| {};
 
     // We only need the header and padding, which is 200 bytes
     let mut seccfg_header = Vec::with_capacity(200);
     let mut cursor = Cursor::new(&mut seccfg_header);
 
-    xflash.read_flash(seccfg.address, 200, section, &mut progress, &mut cursor).ok()?;
+    xflash.read_flash(seccfg.address, 200, section, progress, &mut cursor).ok()?;
 
     let mut parsed_seccfg = SecCfgV4::parse_header(&seccfg_header).ok()?;
     let hash = parsed_seccfg.get_encrypted_hash();
@@ -59,11 +59,11 @@ pub fn write_seccfg(xflash: &mut XFlash, seccfg: &mut SecCfgV4) -> Option<Vec<u8
     seccfg.set_encrypted_hash(enc_hash);
     let seccfg_data = seccfg.create();
 
-    let mut progress = |_, _| {};
+    let progress = |_, _| {};
     let mut cursor = Cursor::new(&seccfg_data);
 
     xflash
-        .write_flash(seccfg_part.address, seccfg_data.len(), &mut cursor, section, &mut progress)
+        .write_flash(seccfg_part.address, seccfg_data.len(), &mut cursor, section, progress)
         .ok()?;
 
     Some(seccfg_data)

@@ -5,7 +5,6 @@
 use std::io::{Read, Write};
 use std::sync::Arc;
 
-use downcast_rs::{DowncastSend, impl_downcast};
 use enum_dispatch::enum_dispatch;
 
 use crate::DeviceLog;
@@ -122,7 +121,7 @@ pub enum DAProtocol {
 }
 
 #[enum_dispatch]
-pub trait DownloadProtocol: DowncastSend {
+pub trait DownloadProtocol {
     // Main helpers
     fn upload_da(&mut self) -> Result<bool>;
     fn boot_to(&mut self, addr: u32, data: &[u8]) -> Result<bool>;
@@ -133,52 +132,59 @@ pub trait DownloadProtocol: DowncastSend {
     fn reboot(&mut self, bootmode: BootMode) -> Result<()>;
     // FLASH operations
     // fn read_partition(&mut self, name: &str) -> Result<Vec<u8>, Error>;
-    fn read_flash(
+    fn read_flash<W, F>(
         &mut self,
         addr: u64,
         size: usize,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-        writer: &mut (dyn Write + Send),
-    ) -> Result<()>;
+        progress: F,
+        writer: W,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send;
 
-    fn write_flash(
+    fn write_flash<R, F>(
         &mut self,
         addr: u64,
         size: usize,
-        reader: &mut (dyn Read + Send),
+        reader: R,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+        progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send;
 
-    fn erase_flash(
+    fn erase_flash<F>(
         &mut self,
         addr: u64,
         size: usize,
         section: PartitionKind,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+        progress: F,
+    ) -> Result<()>
+    where
+        F: FnMut(usize, usize) + Send;
 
-    fn download(
+    fn download<R, F>(
         &mut self,
         part_name: String,
         size: usize,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+        reader: R,
+        progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send;
 
-    fn upload(
-        &mut self,
-        part_name: String,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+    fn upload<W, F>(&mut self, part_name: String, writer: W, progress: F) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send;
 
-    fn format(
-        &mut self,
-        part_name: String,
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+    fn format<F>(&mut self, part_name: String, progress: F) -> Result<()>
+    where
+        F: FnMut(usize, usize) + Send;
 
     // Memory
     fn read32(&mut self, addr: u32) -> Result<u32>;
@@ -212,42 +218,42 @@ pub trait DownloadProtocol: DowncastSend {
     fn set_seccfg_lock_state(&mut self, locked: LockFlag) -> Option<Vec<u8>>;
 
     #[cfg(not(feature = "no_exploits"))]
-    fn peek(
-        &mut self,
-        addr: u32,
-        length: usize,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+    fn peek<W, F>(&mut self, addr: u32, length: usize, writer: W, progress: F) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send;
 
     #[cfg(not(feature = "no_exploits"))]
-    fn poke(
-        &mut self,
-        addr: u32,
-        length: usize,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+    fn poke<R, F>(&mut self, addr: u32, length: usize, reader: R, progress: F) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send;
 
     #[cfg(not(feature = "no_exploits"))]
-    fn read_rpmb(
+    fn read_rpmb<W, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        writer: &mut (dyn Write + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+        writer: W,
+        progress: F,
+    ) -> Result<()>
+    where
+        W: Write + Send,
+        F: FnMut(usize, usize) + Send;
 
     #[cfg(not(feature = "no_exploits"))]
-    fn write_rpmb(
+    fn write_rpmb<R, F>(
         &mut self,
         region: RpmbRegion,
         start_sector: u32,
         sectors_count: u32,
-        reader: &mut (dyn Read + Send),
-        progress: &mut (dyn FnMut(usize, usize) + Send),
-    ) -> Result<()>;
+        reader: R,
+        progress: F,
+    ) -> Result<()>
+    where
+        R: Read + Send,
+        F: FnMut(usize, usize) + Send;
 
     #[cfg(not(feature = "no_exploits"))]
     fn auth_rpmb(&mut self, region: RpmbRegion, key: &[u8]) -> Result<()>;
@@ -261,5 +267,3 @@ pub trait DownloadProtocol: DowncastSend {
     #[cfg(not(feature = "no_exploits"))]
     fn patch_da2(&mut self) -> Option<DAEntryRegion>;
 }
-
-impl_downcast!(DownloadProtocol);
