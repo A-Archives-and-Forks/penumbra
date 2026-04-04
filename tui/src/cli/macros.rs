@@ -15,7 +15,6 @@ macro_rules! mtk_commands {
             )+
         }
 
-        #[async_trait::async_trait]
         impl $crate::cli::MtkCommand for Commands {
             fn run(
                 &self,

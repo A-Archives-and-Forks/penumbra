@@ -63,7 +63,6 @@ pub struct UfsStorage {
     pub info: UfsInfo,
 }
 
-#[async_trait]
 impl Storage for UfsStorage {
     fn kind(&self) -> StorageType {
         StorageType::Ufs

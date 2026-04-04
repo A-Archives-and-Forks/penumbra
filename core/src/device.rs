@@ -883,7 +883,6 @@ impl Device {
     }
 }
 
-#[async_trait::async_trait]
 impl CryptoIO for Device {
     fn read32(&mut self, addr: u32) -> u32 {
         let Some(protocol) = self.get_protocol() else {

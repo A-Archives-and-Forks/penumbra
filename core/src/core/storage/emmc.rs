@@ -85,7 +85,6 @@ pub struct EmmcStorage {
     pub info: EmmcInfo,
 }
 
-#[async_trait]
 impl Storage for EmmcStorage {
     fn kind(&self) -> StorageType {
         StorageType::Emmc
