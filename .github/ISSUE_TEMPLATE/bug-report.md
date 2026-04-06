@@ -22,3 +22,12 @@ assignees: shomykohai
 
 ## Steps to reproduce the bug & eventual errors
 <!-- Describe here the steps to reproduce the bug -->
+
+## Attachments
+<!-- Files that might be needed
+
+Attach here any log file, the files you used to reproduce the bug,
+or any other relevant file.
+If applicable, add screenshots to help explain your problem. 
+
+-->
