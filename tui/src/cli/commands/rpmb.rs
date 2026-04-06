@@ -11,7 +11,7 @@ use anyhow::{Result, anyhow};
 use clap::Args;
 use log::info;
 use penumbra::Device;
-use penumbra::core::storage::RpmbRegion;
+use penumbra::core::storage::{RpmbRegion, Storage};
 
 use crate::cli::MtkCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};

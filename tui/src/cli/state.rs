@@ -9,8 +9,8 @@ use tokio::fs::{metadata, read, remove_file, write};
 #[derive(Serialize, Deserialize, Default, Debug)]
 pub struct PersistedDeviceState {
     pub da_file_path: Option<String>,
-    pub soc_id: Vec<u8>,
-    pub meid: Vec<u8>,
+    pub soc_id: [u8; 32],
+    pub meid: [u8; 16],
     pub hw_code: u16,
     pub target_config: u32,
     pub connection_type: u8,

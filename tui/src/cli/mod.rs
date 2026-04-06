@@ -139,10 +139,9 @@ pub async fn run_cli(args: &CliArgs) -> Result<()> {
 
     if state.hw_code != 0 {
         let dev_info = DevInfoData {
-            soc_id: state.soc_id.clone(),
-            meid: state.meid.clone(),
+            soc_id: state.soc_id,
+            meid: state.meid,
             hw_code: state.hw_code,
-            storage: None,
             partitions: vec![],
             target_config: state.target_config,
         };
