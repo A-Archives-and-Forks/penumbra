@@ -296,7 +296,8 @@ fn init_rpmb(xml: &mut Xml, region: RpmbRegion) -> Result<()> {
     // Derive RPMB key (0 = RPMB)
     xmlcmd!(xml, ExtKeyDerive, "RPMB")?;
     let resp = xml.get_upload_file_resp()?;
-    let key: String = get_tag(&resp, "key")?;
+    let key: String = get_tag(&resp, "result")?;
+    xml.lifetime_ack(XmlCmdLifetime::CmdEnd)?;
 
     // If the RPMB is already initialized (even with another key), this will succeed
     // without actually changing the key.
