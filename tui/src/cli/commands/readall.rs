@@ -98,8 +98,8 @@ impl MtkCommand for ReadAllArgs {
                 p.address,
                 p.size,
                 p.kind,
-                &mut progress_callback,
                 &mut output_file,
+                &mut progress_callback,
             ) {
                 Ok(_) => {}
                 Err(_) => {
