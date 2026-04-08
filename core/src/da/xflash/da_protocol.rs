@@ -349,52 +349,44 @@ impl DownloadProtocol for XFlash {
     }
 
     fn get_partitions(&mut self) -> Vec<Partition> {
-        let storage = match self.get_storage() {
-            Some(s) => s,
-            None => {
-                error!("[Penumbra] Failed to get storage for partition parsing");
-                return Vec::new();
-            }
+        let Some(storage) = self.get_storage() else {
+            error!("[Penumbra] Failed to get storage for partition parsing");
+            return Vec::new();
         };
 
-        let storage_type = storage.kind();
-        let pl_part1 = storage.get_pl_part1();
-        let pl_part2 = storage.get_pl_part2();
-        let user_part = storage.get_user_part();
         let pl1_size = storage.get_pl1_size() as usize;
+        let pl1_part = storage.get_pl_part1();
         let pl2_size = storage.get_pl2_size() as usize;
-        let user_size = storage.get_user_size() as usize;
-        let gpt_size = 32 * 1024; // TODO: Change this when adding NAND support and PMT
+        let pl2_part = storage.get_pl_part2();
 
         let mut partitions = vec![
-            Partition::new("preloader", pl1_size, 0, pl_part1),
-            Partition::new("preloader_backup", pl2_size, 0, pl_part2),
-            Partition::new("PGPT", gpt_size, 0, user_part),
+            Partition::new("preloader", pl1_size, 0, pl1_part),
+            Partition::new("preloader_backup", pl2_size, 0, pl2_part),
         ];
 
-        let sgpt = Partition::new("SGPT", gpt_size, user_size as u64 - gpt_size as u64, user_part);
+        let mut gpt_parts = Vec::new();
 
-        let progress = |_, _| {};
+        for gpt_name in ["PGPT", "SGPT"] {
+            let mut data = Vec::new();
 
-        let mut pgpt_data = Vec::new();
-        let mut pgpt_cursor = Cursor::new(&mut pgpt_data);
-        self.upload("PGPT".into(), &mut pgpt_cursor, progress).ok();
-        self.send(&[0u8; 4]).ok();
-        let parsed_gpt_parts =
-            Gpt::parse(&pgpt_data, storage_type).map(|g| g.partitions()).unwrap_or_default();
+            if self.upload(gpt_name.into(), Cursor::new(&mut data), |_, _| {}).is_ok() {
+                self.send(&[0u8; 4]).ok();
 
-        let mut gpt_parts = if !parsed_gpt_parts.is_empty() {
-            parsed_gpt_parts
-        } else {
-            let mut sgpt_data = Vec::new();
-            let mut sgpt_cursor = Cursor::new(&mut sgpt_data);
-            self.upload("SGPT".into(), &mut sgpt_cursor, progress).ok();
-            self.send(&[0u8; 4]).ok();
-            Gpt::parse(&sgpt_data, storage_type).map(|g| g.partitions()).unwrap_or_default()
-        };
+                if let Ok(gpt) = Gpt::parse(&data) {
+                    let parsed = Gpt::to_partitions(Some(&gpt), &storage);
+                    if !parsed.is_empty() {
+                        gpt_parts = parsed;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if gpt_parts.is_empty() {
+            gpt_parts = Gpt::to_partitions(None, &storage);
+        }
 
         partitions.append(&mut gpt_parts);
-        partitions.push(sgpt);
 
         partitions
     }

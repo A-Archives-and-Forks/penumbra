@@ -47,6 +47,14 @@ pub enum Error {
     Write(#[from] wincode::WriteError),
     #[error(transparent)]
     HexDecode(#[from] hex::FromHexError),
+    #[error("Parse error: {0}")]
+    ParseError(String),
+    #[error("String parse error: {0}")]
+    StringParseError(String),
+    #[error("Invalid UTF-8 string")]
+    InvalidUtf8,
+    #[error("Invalid UTF-16 string")]
+    InvalidUtf16,
 }
 
 impl Error {
