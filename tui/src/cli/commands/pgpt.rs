@@ -42,11 +42,12 @@ impl MtkCommand for PgptArgs {
         info!("Partition Table:");
         for p in partitions {
             info!(
-                "Name: {:<15} \t Addr: 0x{:08X} \t Size: 0x{:08X} ({})",
+                "Name: {:<15} \t Addr: 0x{:08X} \t Size: 0x{:08X} ({}) \t Section: {}",
                 p.name,
                 p.address,
                 p.size,
-                human_bytes(p.size as f64)
+                human_bytes(p.size as f64),
+                p.kind.as_str()
             );
         }
 
