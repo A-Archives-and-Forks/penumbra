@@ -79,7 +79,7 @@ pub struct PacketHeader {
 }
 
 impl PacketHeader {
-    pub const SIZE: usize = 12;
+    pub const SIZE: usize = size_of::<Self>();
 
     pub fn new(length: u32) -> Self {
         Self { magic: MAGIC, data_type: DataType::Flow, length }
