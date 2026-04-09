@@ -15,10 +15,9 @@ use nusb::{Device, DeviceInfo, Interface, MaybeFuture};
 
 use crate::MTKPort;
 use crate::connection::ConnectionType;
-use crate::connection::port::KNOWN_PORTS;
+use crate::connection::port::{KNOWN_PORTS, MAX_TIMEOUT};
 use crate::error::{Error, Result};
 
-const MAX_TIMEOUT: Duration = Duration::from_millis(700);
 const BULK_IN_SZ: usize = 0x80000;
 const BULK_OUT_SZ: usize = 0x80000;
 
@@ -288,6 +287,17 @@ impl MTKPort for UsbMTKPort {
 
     fn get_port_name(&self) -> String {
         format!("USB {:04X}:{:04X}", self.info.vendor_id(), self.info.product_id())
+    }
+
+    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()> {
+        let new_timeout = timeout.unwrap_or(MAX_TIMEOUT);
+        let writer = self.writer.as_mut().ok_or_else(|| Error::io("USB port is not open"))?;
+        let reader = self.reader.as_mut().ok_or_else(|| Error::io("USB port is not open"))?;
+
+        reader.set_read_timeout(new_timeout);
+        writer.set_write_timeout(new_timeout);
+
+        Ok(())
     }
 
     fn find_device() -> Result<Option<Self>> {

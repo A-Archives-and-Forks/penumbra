@@ -4,9 +4,12 @@
 */
 
 use std::fmt::Debug;
+use std::time::Duration;
 
 use crate::connection::backend::*;
 use crate::error::Result;
+
+pub const MAX_TIMEOUT: Duration = Duration::from_millis(1000);
 
 /// List of all ports available for connecting and what mode they refer to.
 /// Add more entries here for vendor specific ports
@@ -45,6 +48,7 @@ pub trait MTKPort: Send + Debug {
     fn get_connection_type(&self) -> ConnectionType;
     fn get_baudrate(&self) -> u32;
     fn get_port_name(&self) -> String;
+    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()>;
 
     fn find_device() -> Result<Option<Self>>
     where

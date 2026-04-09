@@ -9,7 +9,7 @@ use std::time::Duration;
 use log::{error, info};
 use serialport::{SerialPort, SerialPortInfo, SerialPortType};
 
-use crate::connection::port::{ConnectionType, KNOWN_PORTS, MTKPort};
+use crate::connection::port::{ConnectionType, KNOWN_PORTS, MAX_TIMEOUT, MTKPort};
 use crate::error::{Error, Result};
 
 #[derive(Debug)]
@@ -172,6 +172,18 @@ impl MTKPort for SerialMTKPort {
 
     fn get_port_name(&self) -> String {
         self.port_info.port_name.clone()
+    }
+
+    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()> {
+        let new_timeout = timeout.unwrap_or(MAX_TIMEOUT);
+
+        if let Some(port) = &mut self.port {
+            port.set_timeout(new_timeout).map_err(|e| Error::Io(e.to_string()))?;
+        } else {
+            return Err(Error::io("Port is not open"));
+        }
+
+        Ok(())
     }
 
     fn find_device() -> Result<Option<Self>> {

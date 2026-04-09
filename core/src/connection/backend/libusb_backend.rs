@@ -9,7 +9,7 @@ use std::time::Duration;
 use log::{debug, info};
 use rusb::{Context, Device, DeviceHandle, Direction, Recipient, RequestType, UsbContext};
 
-use crate::connection::port::{ConnectionType, KNOWN_PORTS, MTKPort};
+use crate::connection::port::{ConnectionType, KNOWN_PORTS, MAX_TIMEOUT, MTKPort};
 use crate::error::{Error, Result};
 
 #[derive(Debug)]
@@ -21,6 +21,7 @@ pub struct UsbMTKPort {
     port_name: String,
     in_endpoint: u8,
     out_endpoint: u8,
+    timeout: Duration,
 }
 
 impl UsbMTKPort {
@@ -40,6 +41,7 @@ impl UsbMTKPort {
             port_name,
             in_endpoint,
             out_endpoint,
+            timeout: MAX_TIMEOUT,
         }
     }
 
@@ -194,13 +196,12 @@ impl MTKPort for UsbMTKPort {
 
     fn read_exact(&mut self, buf: &mut [u8]) -> Result<usize> {
         let endpoint = self.in_endpoint;
-        let timeout = Duration::from_millis(5000);
 
         let mut total_read = 0;
         while total_read < buf.len() {
             let to_read = buf.len() - total_read;
             let mut temp_buf = vec![0u8; to_read];
-            let n = match self.handle.read_bulk(endpoint, &mut temp_buf, timeout) {
+            let n = match self.handle.read_bulk(endpoint, &mut temp_buf, self.timeout) {
                 Ok(n) => n,
                 Err(rusb::Error::Timeout) => return Err(Error::Timeout),
                 Err(e) => return Err(Error::io(e.to_string())),
@@ -222,10 +223,9 @@ impl MTKPort for UsbMTKPort {
             self.write_all(&[startcmd[i]])?;
 
             let endpoint = self.in_endpoint;
-            let timeout = Duration::from_millis(5000);
 
             let mut response = vec![0u8; 5];
-            let n = match self.handle.read_bulk(endpoint, &mut response, timeout) {
+            let n = match self.handle.read_bulk(endpoint, &mut response, self.timeout) {
                 Ok(count) => count,
                 Err(e) => return Err(Error::io(format!("Bulk read failed: {:?}", e))),
             };
@@ -254,10 +254,9 @@ impl MTKPort for UsbMTKPort {
 
     fn write_all(&mut self, buf: &[u8]) -> Result<()> {
         let endpoint = self.out_endpoint;
-        let timeout = Duration::from_millis(5000);
         let data = buf.to_vec();
 
-        if let Err(e) = self.handle.write_bulk(endpoint, &data, timeout) {
+        if let Err(e) = self.handle.write_bulk(endpoint, &data, self.timeout) {
             // Penumbra has its own timeout error type to "commonize" all
             // backends. While we could just use std::io::ErrorKind::TimedOut,
             // I rather have my own error type to have more control of the timeout
@@ -285,6 +284,12 @@ impl MTKPort for UsbMTKPort {
 
     fn get_port_name(&self) -> String {
         self.port_name.clone()
+    }
+
+    fn set_timeout(&mut self, timeout: Option<Duration>) -> Result<()> {
+        self.timeout = timeout.unwrap_or(MAX_TIMEOUT);
+
+        Ok(())
     }
 
     fn find_device() -> Result<Option<Self>> {
@@ -319,14 +324,7 @@ impl MTKPort for UsbMTKPort {
         index: u16,
         data: &[u8],
     ) -> Result<()> {
-        self.handle.write_control(
-            request_type,
-            request,
-            value,
-            index,
-            data,
-            Duration::from_secs(1),
-        )?;
+        self.handle.write_control(request_type, request, value, index, data, self.timeout)?;
 
         Ok(())
     }
@@ -347,7 +345,7 @@ impl MTKPort for UsbMTKPort {
             value,
             index,
             &mut buf,
-            Duration::from_secs(1),
+            self.timeout,
         )?;
 
         buf.truncate(n);
