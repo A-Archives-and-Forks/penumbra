@@ -3,6 +3,7 @@
     SPDX-FileCopyrightText: 2025 Shomy
 */
 use std::collections::BTreeMap;
+use std::fmt::Display;
 
 use xmlcmd_derive::XmlCommand;
 
@@ -46,7 +47,7 @@ pub enum XmlCmdLifetime {
 
 /// Each XML command should implement this trait, by
 /// using the `XmlCommand` derive macro.
-pub trait XmlCommand {
+pub trait XmlCommand: Display {
     fn cmd_name(&self) -> &'static str;
     fn args(&self) -> Vec<(Option<&'static str>, &'static str, String)>;
     fn version(&self) -> &'static str;

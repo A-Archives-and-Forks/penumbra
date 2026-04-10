@@ -79,6 +79,21 @@ pub fn xmlcmd_derive(input: TokenStream) -> TokenStream {
                 ]
             }
         }
+
+        impl std::fmt::Display for #name {
+             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                 write!(f, "CMD:{}", self.cmd_name())?;
+
+                 for (section, tag, content) in self.args() {
+                     match section {
+                         Some(sec) => write!(f, "\n  [{}] {}: {}", sec, tag, content)?,
+                         None => write!(f, "\n  {}: {}", tag, content)?,
+                     }
+                 }
+
+                 Ok(())
+             }
+         }
     }
     .into()
 }

@@ -186,14 +186,7 @@ impl Xml {
         self.lifetime_ack(XmlCmdLifetime::CmdStart)?;
         self.send(xml_bytes)?;
 
-        debug!("Sent XML Command: CMD:{}", cmd.cmd_name());
-        cmd.args().iter().for_each(|(section, tag, content)| {
-            if let Some(sec) = section {
-                debug!("  [{}] {}: {}", sec, tag, content);
-            } else {
-                debug!("  {}: {}", tag, content);
-            }
-        });
+        debug!("Sent XML Command: {}", cmd);
 
         // Read the ack back.
         // We don't wait for CMD:END here, because each CMD might
