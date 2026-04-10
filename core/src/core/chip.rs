@@ -17,6 +17,7 @@ pub struct ChipInfo {
     hw_code: u16,
     sej_base: u32,
     tzcc_base: u32,
+    ssr_base: u32,
     wdt: u32,
     uart: u32,
 }
@@ -42,6 +43,11 @@ impl ChipInfo {
         self.tzcc_base
     }
 
+    /// SSR base address. `0` if unknown.
+    pub const fn ssr_base(&self) -> u32 {
+        self.ssr_base
+    }
+
     /// Watchdog timer base address. `0` if unknown.
     pub const fn wdt(&self) -> u32 {
         self.wdt
@@ -59,6 +65,10 @@ impl ChipInfo {
     pub const fn has_tzcc(&self) -> bool {
         self.tzcc_base != 0
     }
+
+    pub const fn has_ssr(&self) -> bool {
+        self.ssr_base != 0
+    }
 }
 
 pub struct ChipBuilder {
@@ -66,6 +76,7 @@ pub struct ChipBuilder {
     hw_code: u16,
     sej_base: u32,
     tzcc_base: u32,
+    ssr_base: u32,
     wdt: u32,
     uart: u32,
 }
@@ -74,7 +85,7 @@ impl ChipBuilder {
     /// Start a new chip definition with the given name and raw `hw_code`.
     /// All address fields default to `0` (unknown).
     pub const fn new(name: &'static str, hw_code: u16) -> Self {
-        Self { name, hw_code, sej_base: 0, tzcc_base: 0, wdt: 0, uart: 0 }
+        Self { name, hw_code, sej_base: 0, tzcc_base: 0, ssr_base: 0, wdt: 0, uart: 0 }
     }
 
     pub const fn with_sej_base(mut self, addr: u32) -> Self {
@@ -84,6 +95,11 @@ impl ChipBuilder {
 
     pub const fn with_tzcc_base(mut self, addr: u32) -> Self {
         self.tzcc_base = addr;
+        self
+    }
+
+    pub const fn with_ssr_base(mut self, addr: u32) -> Self {
+        self.ssr_base = addr;
         self
     }
 
@@ -103,6 +119,7 @@ impl ChipBuilder {
             hw_code: self.hw_code,
             sej_base: self.sej_base,
             tzcc_base: self.tzcc_base,
+            ssr_base: self.ssr_base,
             wdt: self.wdt,
             uart: self.uart,
         }
@@ -326,23 +343,38 @@ pub const MT6886: ChipInfo = ChipBuilder::new("MT6886/Dimensity 7200", 0x1229)
     .with_uart(0x11001000)
     .build();
 
+// Goya
+pub const MT6899: ChipInfo = ChipBuilder::new("MT6899/Dimensity 8400", 0x6899)
+    .with_sej_base(0x1040E000)
+    .with_ssr_base(0x10400000)
+    .with_wdt(0x1C00B000)
+    .with_uart(0x11001000)
+    .build();
+
 pub const MT6985: ChipInfo = ChipBuilder::new("MT6985/Dimensity 9200", 0x1296)
-    .with_sej_base(0x1C009000)
-    .with_tzcc_base(0x1C807000)
+    .with_sej_base(0x1040E000)
+    .with_ssr_base(0x10400000)
+    .with_wdt(0x1C007000)
+    .with_uart(0x1C011000)
+    .build();
+
+pub const MT6989: ChipInfo = ChipBuilder::new("MT6989/Dimensity 9300", 0x1236)
+    .with_sej_base(0x1040E000)
+    .with_ssr_base(0x10400000)
     .with_wdt(0x1C007000)
     .with_uart(0x1C011000)
     .build();
 
 pub const MT6991: ChipInfo = ChipBuilder::new("MT6991/Dimensity 9400", 0x1357)
     .with_sej_base(0x1800E000)
-    .with_tzcc_base(0x18003000)
+    .with_ssr_base(0x18000000)
     .with_wdt(0x1C010000)
     .with_uart(0x16000000)
     .build();
 
 pub const MT6993: ChipInfo = ChipBuilder::new("MT6993/Dimensity 9500", 0x1471)
     .with_sej_base(0x1800E000)
-    .with_tzcc_base(0x18005000)
+    .with_ssr_base(0x18000000)
     .with_wdt(0x1C010000)
     .with_uart(0x16010000)
     .build();
@@ -407,10 +439,12 @@ pub const fn chip_from_hw_code(hw_code: u16) -> &'static ChipInfo {
         0x1208 => &MT6789,
         0x1209 => &MT6835,
         0x1229 => &MT6886,
-        0x1375 => &MT6878,
+        0x1236 => &MT6989,
         0x1296 => &MT6985,
+        0x1375 => &MT6878,
         0x1357 => &MT6991,
         0x1471 => &MT6993,
+        0x6899 => &MT6899,
         0x8167 => &MT8167,
         0x8168 => &MT8168,
         0x8512 => &MT8512,
