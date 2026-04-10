@@ -202,7 +202,7 @@ impl Xml {
             Ok(_) => Ok(true),
             Err(Error::Xml(err)) if err.kind == XmlErrorKind::UnsupportedCmd => {
                 self.lifetime_ack(XmlCmdLifetime::CmdEnd)?;
-                Ok(false)
+                Err(Error::Xml(err))
             }
             Err(e) => Err(e),
         }

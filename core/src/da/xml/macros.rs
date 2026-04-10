@@ -18,7 +18,8 @@ macro_rules! xmlcmd {
 macro_rules! xmlcmd_e {
     ($self:expr, $cmd_ty:ty $(, $arg:expr )* $(,)?) => {{
         let cmd = <$cmd_ty>::new( $( $arg ),* );
-        $self.send_cmd(&cmd)?;
-        $self.lifetime_ack(crate::da::xml::cmds::XmlCmdLifetime::CmdEnd)
+        $self.send_cmd(&cmd).and_then(|_| {
+            $self.lifetime_ack(crate::da::xml::cmds::XmlCmdLifetime::CmdEnd)
+        })
     }};
 }
