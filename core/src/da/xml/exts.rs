@@ -149,6 +149,7 @@ pub fn boot_extensions(xml: &mut Xml) -> Result<bool> {
 
     let sej_base = xml.chip().sej_base();
     let tzcc_base = xml.chip().tzcc_base();
+    let ssr_base = xml.chip().ssr_base();
     let da2_base = xml.da.get_da2().map(|da2| da2.addr).unwrap_or(0);
     let da2_size = xml.da.get_da2().map(|da2| da2.data.len() as u32).unwrap_or(0);
     let storage = match xml.get_storage() {
@@ -161,7 +162,7 @@ pub fn boot_extensions(xml: &mut Xml) -> Result<bool> {
     };
     let usb_log = if xml.usb_log_channel { "yes" } else { "no" };
 
-    xmlcmd_e!(xml, ExtDaCtx, sej_base, tzcc_base, 0u32, da2_base, da2_size, storage, usb_log)?;
+    xmlcmd_e!(xml, ExtDaCtx, sej_base, tzcc_base, ssr_base, da2_base, da2_size, storage, usb_log)?;
 
     info!("Successfully booted XML extensions");
 
