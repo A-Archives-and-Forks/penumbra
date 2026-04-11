@@ -118,7 +118,7 @@ fn prepare_extensions(xflash: &XFlash) -> Option<Vec<u8>> {
     let off = analyzer.get_bl_target(off)?;
     let off = analyzer.va_to_offset(off)?;
     // + 0x20 to account of the extloader just in case
-    let off = analyzer.get_next_bl_from_off(off as usize)?;
+    let off = analyzer.get_next_bl_from_off(off)?;
     let reg_devc = analyzer.get_bl_target(off)? as u32 | 1;
 
     debug!("Found register_device_ctrl at 0x{:08X}", reg_devc);
