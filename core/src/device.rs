@@ -176,10 +176,10 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let mut device = DeviceBuilder::default().with_mtk_port(mtk_port).build()?;
     ///
-    /// device.init().await?;
+    /// device.init()?;
     /// assert_eq!(device.connected, true);
     /// ```
     pub fn init(&mut self) -> Result<()> {
@@ -258,14 +258,13 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// device.enter_da_mode().await?;
-    /// assert_eq!(device.get_connection()?.connection_type, ConnectionType::Da);
+    /// device.init()?;
+    /// device.enter_da_mode()?;
     /// ```
     pub fn enter_da_mode(&mut self) -> Result<()> {
         if !self.connected {
@@ -387,14 +386,14 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// device.enter_da_mode().await?;
-    /// let partitions = device.get_partitions().await;
+    /// device.init()?;
+    /// device.enter_da_mode()?;
+    /// let partitions = device.get_partitions();
     /// for part in &partitions {
     ///     println!("{}: size={}", part.name, part.size);
     /// }
@@ -464,14 +463,16 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let mut progress = |_erased: usize, _total: usize| {};
-    /// device.erase_partition("userdata", &mut progress).await?;
+    /// device.init()?;
+    /// let mut progress = |erased: usize, total: usize| {
+    ///     println!("Erased: {}/{}", erased, total);
+    /// };
+    /// device.erase_partition("userdata", &mut progress)?;
     /// ```
     pub fn erase_partition<F>(&mut self, partition: &str, progress: F) -> Result<()>
     where
@@ -498,15 +499,20 @@ impl Device {
     /// // Let's assume we want to read preloader
     /// use penumbra::{DeviceBuilder, PartitionKind, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let mut device = DeviceBuilder::default().with_mtk_port(mtk_port).build()?;
     ///
-    /// device.init().await?;
+    /// device.init()?;
     ///
-    /// let mut progress = |_read: usize, _total: usize| {};
-    /// let preloader_data = device
-    ///     .read_offset(0x0, 0x40000, PartitionKind::Emmc(EmmcPartition::Boot1), &mut progress)
-    ///     .await?;
+    /// let mut progress = |read: usize, total: usize| {
+    ///     println!("Read: {}/{}", read, total);
+    /// };
+    /// let preloader_data = device.read_offset(
+    ///     0x0,
+    ///     0x40000,
+    ///     PartitionKind::Emmc(EmmcPartition::Boot1),
+    ///     &mut progress,
+    /// )?;
     /// ```
     pub fn read_offset<W, F>(
         &mut self,
@@ -536,22 +542,23 @@ impl Device {
     /// // Let's assume we want to write to preloader
     /// use penumbra::{DeviceBuilder, PartitionKind, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let mut device = DeviceBuilder::default().with_mtk_port(mtk_port).build()?;
     ///
-    /// device.init().await?;
+    /// device.init()?;
     ///
-    /// let preloader_data = std::fs::read("path/to/preloader_penangf.bin").expect("Failed to read preloader");
-    /// let mut progress = |_written: usize, _total: usize| {};
-    /// device
-    ///     .write_offset(
-    ///         0x1000, // Actual preloader offset is 0x0, but we skip the header to ensure correct writing
-    ///         preloader_data.len(),
-    ///         &preloader_data,
-    ///         PartitionKind::Emmc(EmmcPartition::Boot1),
-    ///         &mut progress,
-    ///     )
-    ///     .await?;
+    /// let preloader_data =
+    ///     std::fs::read("path/to/preloader_penangf.bin").expect("Failed to read preloader");
+    /// let mut progress = |written: usize, total: usize| {
+    ///     println!("Written: {}/{}", written, total);
+    /// };
+    /// device.write_offset(
+    ///     0x1000, // Actual preloader offset is 0x0, but we skip the header to ensure correct writing
+    ///     preloader_data.len(),
+    ///     &preloader_data,
+    ///     PartitionKind::Emmc(EmmcPartition::Boot1),
+    ///     &mut progress,
+    /// )?;
     /// ```
     pub fn write_offset<R, F>(
         &mut self,
@@ -580,16 +587,16 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, PartitionKind, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let mut progress = |_erased: usize, _total: usize| {};
-    /// device
-    ///     .erase_offset(0x0, 0x40000, PartitionKind::Emmc(EmmcPartition::Boot1), &mut progress)
-    ///     .await?;
+    /// device.init()?;
+    /// let mut progress = |erased: usize, total: usize| {
+    ///     println!("Erased: {}/{}", erased, total);
+    /// };
+    /// device.erase_offset(0x0, 0x40000, PartitionKind::Emmc(EmmcPartition::Boot1), &mut progress)?;
     /// ```
     pub fn erase_offset<F>(
         &mut self,
@@ -619,12 +626,12 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let mut device = DeviceBuilder::default().with_mtk_port(mtk_port).build()?;
     ///
-    /// device.init().await?;
+    /// device.init()?;
     /// let firmware_data = std::fs::read("logo.bin").expect("Failed to read firmware");
-    /// device.download("logo", &firmware_data).await?;
+    /// device.download("logo", firmware_data.len(), &firmware_data)?;
     /// ```
     pub fn download<R, F>(
         &mut self,
@@ -650,21 +657,24 @@ impl Device {
     ///
     /// # Examples
     /// ```rust
-    /// use penumbra::{DeviceBuilder, find_mtk_port};
-    /// use tokio::fs::File;
-    /// use tokio::io::BufWriter;
+    /// use std::fs::File;
+    /// use std::io::BufWriter;
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// use penumbra::{DeviceBuilder, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
+    /// device.init()?;
     /// // Readsback "logo" partition to "logo.bin"
-    /// let file = File::create("logo.bin").await?;
+    /// let file = File::create("logo.bin")?;
     /// let mut writer = BufWriter::new(file);
-    /// let mut progress = |_written: usize, _total: usize| {};
-    /// device.upload("logo", &mut writer, &mut progress).await?;
+    /// let mut progress = |written: usize, total: usize| {
+    ///     println!("Written: {}/{}", written, total);
+    /// };
+    /// device.upload("logo", &mut writer, &mut progress)?;
     /// ```
     pub fn upload<W, F>(&mut self, partition: &str, writer: W, progress: F) -> Result<()>
     where
@@ -677,20 +687,22 @@ impl Device {
         protocol.upload(partition, writer, progress)
     }
 
-    /// Formats a specified partition on the device
+    /// Formats a specified partition on the device.
     ///
     /// # Examples
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let mut progress = |_erased: usize, _total: usize| {};
-    /// device.format("userdata", &mut progress).await?;
+    /// device.init()?;
+    /// let mut progress = |erased: usize, total: usize| {
+    ///     println!("Erased: {}/{}", erased, total);
+    /// };
+    /// device.format("userdata", &mut progress)?;
     /// ```
     pub fn format<F>(&mut self, partition: &str, progress: F) -> Result<()>
     where
@@ -702,19 +714,19 @@ impl Device {
         protocol.format(partition, progress)
     }
 
-    /// Shuts down the device
+    /// Shuts down the device.
     ///
     /// # Examples
     /// ```rust
     /// use penumbra::{DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// device.shutdown().await?;
+    /// device.init()?;
+    /// device.shutdown()?;
     /// ```
     pub fn shutdown(&mut self) -> Result<()> {
         self.ensure_da_mode()?;
@@ -730,13 +742,13 @@ impl Device {
     /// ```rust
     /// use penumbra::{BootMode, DeviceBuilder, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// device.reboot(BootMode::Normal).await?;
+    /// device.init()?;
+    /// device.reboot(BootMode::Normal)?;
     /// ```
     pub fn reboot(&mut self, bootmode: BootMode) -> Result<()> {
         self.ensure_da_mode()?;
@@ -755,13 +767,13 @@ impl Device {
     /// ```rust
     /// use penumbra::{DeviceBuilder, LockFlag, find_mtk_port};
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let seccfg = device.set_seccfg_lock_state(LockFlag::Unlock).await;
+    /// device.init()?;
+    /// let seccfg = device.set_seccfg_lock_state(LockFlag::Unlock);
     /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn set_seccfg_lock_state(&mut self, lock_state: LockFlag) -> Option<[u8; 512]> {
@@ -772,26 +784,29 @@ impl Device {
     }
 
     /// Reads memory from the device at the given address and size.
-    /// The data is written to the provided `writer` as it is read..
+    /// The data is written to the provided `writer` as it is read.
     ///
     /// Only available when the `no_exploits` feature is **not** enabled.
     ///
     /// # Examples
     /// ```rust
-    /// use penumbra::{DeviceBuilder, find_mtk_port};
-    /// use tokio::fs::File;
-    /// use tokio::io::BufWriter;
+    /// use std::fs::File;
+    /// use std::io::BufWriter;
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// use penumbra::{DeviceBuilder, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let file = File::create("dump.bin").await?;
+    /// device.init()?;
+    /// let file = File::create("dump.bin")?;
     /// let mut writer = BufWriter::new(file);
-    /// let mut progress = |_read: usize, _total: usize| {};
-    /// device.peek(0x0010_0000, 0x1000, &mut writer, &mut progress).await?;
+    /// let mut progress = |read: usize, total: usize| {
+    ///     println!("Read: {}/{}", read, total);
+    /// };
+    /// device.peek(0x0010_0000, 0x1000, &mut writer, &mut progress)?;
     /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn peek<W, F>(&mut self, addr: u32, size: usize, writer: W, progress: F) -> Result<()>
@@ -806,26 +821,29 @@ impl Device {
     }
 
     /// Writes memory to the device at the given address and size.
-    /// The data is read from the provided `reader` as it is written..
+    /// The data is read from the provided `reader` as it is written.
     ///
     /// Only available when the `no_exploits` feature is **not** enabled.
     ///
     /// # Examples
     /// ```rust
-    /// use penumbra::{DeviceBuilder, find_mtk_port};
-    /// use tokio::fs::File;
-    /// use tokio::io::BufWriter;
+    /// use std::fs::File;
+    /// use std::io::BufReader;
     ///
-    /// let mtk_port = find_mtk_port().await.ok_or("No MTK port found")?;
+    /// use penumbra::{DeviceBuilder, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
     /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
     /// let mut device =
     ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
     ///
-    /// device.init().await?;
-    /// let file = File::create("dump.bin").await?;
+    /// device.init()?;
+    /// let file = File::open("dump.bin")?;
     /// let mut reader = BufReader::new(file);
-    /// let mut progress = |_read: usize, _total: usize| {};
-    /// device.poke(0x0010_0000, 0x1000, &mut reader, &mut progress).await?;
+    /// let mut progress = |written: usize, total: usize| {
+    ///     println!("Written: {}/{}", written, total);
+    /// };
+    /// device.poke(0x0010_0000, 0x1000, &mut reader, &mut progress)?;
     /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn poke<R, F>(&mut self, addr: u32, size: usize, reader: R, progress: F) -> Result<()>
@@ -839,6 +857,32 @@ impl Device {
         protocol.poke(addr, size, reader, progress)
     }
 
+    /// Reads from the RPMB partition.
+    /// The RPMB is a special partition protected with authentication and counter mechanisms.
+    /// On eMMC, the `region` parameter is ignored since there is only one RPMB region.
+    /// On UFS, the `region` parameter specifies which RPMB region to read from.
+    /// Only available when the `no_exploits` feature is **not** enabled.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use std::fs::File;
+    /// use std::io::BufWriter;
+    ///
+    /// use penumbra::{DeviceBuilder, RpmbRegion, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
+    /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
+    /// let mut device =
+    ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
+    ///
+    /// device.init()?;
+    /// let file = File::create("rpmb_dump.bin")?;
+    /// let mut writer = BufWriter::new(file);
+    /// let mut progress = |read: usize, total: usize| {
+    ///     println!("Read: {}/{}", read, total);
+    /// };
+    /// device.read_rpmb(RpmbRegion::Emmc, 0, 1, &mut writer, &mut progress)?;
+    /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn read_rpmb<W, F>(
         &mut self,
@@ -858,6 +902,32 @@ impl Device {
         protocol.read_rpmb(region, start_sector, sectors_count, writer, progress)
     }
 
+    /// Writes to the RPMB partition.
+    /// The RPMB is a special partition protected with authentication and counter mechanisms.
+    /// On eMMC, the `region` parameter is ignored since there is only one RPMB region.
+    /// On UFS, the `region` parameter specifies which RPMB region to write to.
+    /// Only available when the `no_exploits` feature is **not** enabled.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use std::fs::File;
+    /// use std::io::BufReader;
+    ///
+    /// use penumbra::{DeviceBuilder, RpmbRegion, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
+    /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
+    /// let mut device =
+    ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
+    ///
+    /// device.init()?;
+    /// let file = File::open("rpmb_data.bin")?;
+    /// let mut reader = BufReader::new(file);
+    /// let mut progress = |written: usize, total: usize| {
+    ///     println!("Written: {}/{}", written, total);
+    /// };
+    /// device.write_rpmb(RpmbRegion::Emmc, 0, 1, &mut reader, &mut progress)?;
+    /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn write_rpmb<R, F>(
         &mut self,
@@ -877,6 +947,27 @@ impl Device {
         protocol.write_rpmb(region, start_sector, sectors_count, reader, progress)
     }
 
+    /// Authenticate RPMB by setting the authentication key for the specified RPMB region.
+    /// The key must be 32 bytes long.
+    /// The authentication will be successful if the provided key matches the one programmed
+    /// in the device's storage OTP.
+    /// On eMMC, the `region` parameter is ignored since there is only one RPMB region.
+    /// On UFS, the `region` parameter specifies which RPMB region to authenticate against.
+    /// Only available when the `no_exploits` feature is **not** enabled.
+    ///
+    /// # Examples
+    /// ```rust
+    /// use penumbra::{DeviceBuilder, RpmbRegion, find_mtk_port};
+    ///
+    /// let mtk_port = find_mtk_port().ok_or("No MTK port found")?;
+    /// let da_data = std::fs::read("path/to/da/file").expect("Failed to read DA file");
+    /// let mut device =
+    ///     DeviceBuilder::default().with_mtk_port(mtk_port).with_da_data(da_data).build()?;
+    ///
+    /// device.init()?;
+    /// let key = b"eb3550a191deaf013062ffbdf97644a21fe153f497cb87efeb863aae979f4dd0";
+    /// device.auth_rpmb(RpmbRegion::Emmc, key)?;
+    /// ```
     #[cfg(not(feature = "no_exploits"))]
     pub fn auth_rpmb(&mut self, region: RpmbRegion, key: &[u8]) -> Result<()> {
         self.ensure_da_mode()?;
