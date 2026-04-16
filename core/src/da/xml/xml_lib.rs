@@ -253,7 +253,7 @@ impl Xml {
     }
 
     /// Receives a file from the device.
-    pub fn upload_file<W, F>(&mut self, mut writer: W, mut progress: F) -> Result<bool>
+    pub fn upload_file<W, F>(&mut self, mut writer: W, mut progress: F) -> Result<usize>
     where
         F: FnMut(usize, usize) + Send,
         W: Write,
@@ -305,7 +305,7 @@ impl Xml {
 
         debug!("File upload completed, 0x{:X} bytes received.", size);
 
-        Ok(true)
+        Ok(bytes_received)
     }
 
     /// Waits for the device to finish a certain operation, reporting progress.
