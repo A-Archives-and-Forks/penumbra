@@ -11,7 +11,7 @@ use clap::Args;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -38,39 +38,28 @@ impl CommandMetadata for ReadArgs {
     }
 }
 
-impl MtkCommand for ReadArgs {
+impl DeviceCommand for ReadArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
         state.connection_type = CONN_DA;
         state.flash_mode = 1;
 
-        let partition = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p,
-            None => {
-                info!("Partition '{}' not found on device.", self.partition);
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
 
-        let total_size = partition.size as u64;
+        let total_size = part.size as u64;
         let pb = AntumbraProgress::new(total_size);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Reading flash");
-
-                if written >= total {
-                    pb.finish("Read complete!");
-                }
-            }
-        };
+        let mut progress_callback = pb.get_callback("Reading flash...", "Read complete!");
 
         let file = File::create(&self.output_file)?;
         let mut writer = BufWriter::new(file);
 
-        match dev.read_partition(&self.partition, &mut progress_callback, &mut writer) {
+        info!("Reading flash at address {:#X} with size 0x{:X}", part.address, total_size);
+
+        match dev.read_partition(&part.name, &mut writer, &mut progress_callback) {
             Ok(_) => {}
             Err(e) => {
                 pb.abandon("Read failed!");
@@ -79,6 +68,12 @@ impl MtkCommand for ReadArgs {
         };
 
         writer.flush()?;
+
+        info!(
+            "Flash read completed, {:#X} bytes written to '{}'.",
+            total_size,
+            self.output_file.display()
+        );
 
         Ok(())
     }

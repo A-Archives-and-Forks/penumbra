@@ -11,7 +11,7 @@ use clap::Args;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -39,45 +39,40 @@ impl CommandMetadata for UploadArgs {
     }
 }
 
-impl MtkCommand for UploadArgs {
+impl DeviceCommand for UploadArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
         state.connection_type = CONN_DA;
         state.flash_mode = 1;
 
-        let partition = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p,
-            None => {
-                info!("Partition '{}' not found on device.", self.partition);
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
 
-        let total_size = partition.size as u64;
+        let total_size = part.size as u64;
         let pb = AntumbraProgress::new(total_size);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Uploading...");
-
-                if written >= total {
-                    pb.finish("Upload complete!");
-                }
-            }
-        };
+        let mut progress_callback = pb.get_callback("Reading partition...", "Read complete!");
 
         let file = File::create(&self.output_file)?;
         let mut writer = BufWriter::new(file);
 
-        match dev.upload(&self.partition, &mut writer, &mut progress_callback) {
+        info!("Reading partition '{}' with size {:#X}", part.name, part.size);
+
+        match dev.upload(&part.name, &mut writer, &mut progress_callback) {
             Ok(_) => {}
             Err(e) => {
                 pb.abandon("Upload failed!");
                 return Err(e)?;
             }
         };
+
+        info!(
+            "Readback complete, {:#X} bytes written to '{}'",
+            total_size,
+            self.output_file.display()
+        );
 
         Ok(())
     }

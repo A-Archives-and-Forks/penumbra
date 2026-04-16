@@ -8,7 +8,7 @@ use clap::Args;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::state::PersistedDeviceState;
 
@@ -25,7 +25,7 @@ impl CommandMetadata for ShutdownArgs {
     }
 }
 
-impl MtkCommand for ShutdownArgs {
+impl DeviceCommand for ShutdownArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 

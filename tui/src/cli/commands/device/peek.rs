@@ -12,7 +12,7 @@ use clap_num::maybe_hex;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -39,7 +39,7 @@ impl CommandMetadata for PeekArgs {
     }
 }
 
-impl MtkCommand for PeekArgs {
+impl DeviceCommand for PeekArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
@@ -51,16 +51,7 @@ impl MtkCommand for PeekArgs {
 
         let pb = AntumbraProgress::new(self.length as u64);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |read: usize, total: usize| {
-                pb.update(read as u64, "Reading memory...");
-
-                if read >= total {
-                    pb.finish("Memory readback completed!");
-                }
-            }
-        };
+        let mut progress_callback = pb.get_callback("Peeking...", "Peek complete!");
 
         info!(
             "Reading memory from address 0x{:08X}, length 0x{:X} bytes...",

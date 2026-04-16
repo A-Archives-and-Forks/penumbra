@@ -8,9 +8,10 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Args;
+use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -38,7 +39,7 @@ impl CommandMetadata for WriteArgs {
     }
 }
 
-impl MtkCommand for WriteArgs {
+impl DeviceCommand for WriteArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
@@ -50,34 +51,25 @@ impl MtkCommand for WriteArgs {
 
         let file_size = metadata(&self.file)?.len();
 
-        let part_size = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p.size as u64,
-            None => {
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
+
+        let part_size = part.size as u64;
 
         let total_size = file_size.min(part_size);
         let pb = AntumbraProgress::new(total_size);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Writing flash");
+        let mut progress_callback = pb.get_callback("Writing flash...", "Write complete!");
 
-                if written >= total {
-                    pb.finish("Write complete!");
-                }
-            }
-        };
+        info!("Writing flash at address {:#X} with size {:#X}...", part.address, total_size);
 
-        match dev.write_partition(&self.partition, &mut reader, &mut progress_callback) {
-            Ok(_) => {}
-            Err(e) => {
-                pb.abandon("Write failed!");
-                return Err(e)?;
-            }
+        if let Err(e) = dev.write_partition(&part.name, &mut reader, &mut progress_callback) {
+            pb.abandon("Write failed!");
+            return Err(e)?;
         }
+
+        info!("Flash write completed, {:#X} bytes written.", total_size);
 
         Ok(())
     }

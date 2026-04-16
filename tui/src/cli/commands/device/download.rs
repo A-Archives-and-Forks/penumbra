@@ -11,7 +11,7 @@ use clap::Args;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -40,7 +40,7 @@ impl CommandMetadata for DownloadArgs {
     }
 }
 
-impl MtkCommand for DownloadArgs {
+impl DeviceCommand for DownloadArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
@@ -52,46 +52,32 @@ impl MtkCommand for DownloadArgs {
 
         let file_size = metadata(&self.file)?.len();
 
-        let part_size = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p.size as u64,
-            None => {
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
 
-        if file_size > part_size {
+        if file_size > part.size as u64 {
             return Err(anyhow::anyhow!(
                 "File size ({}) exceeds partition size ({}).",
                 file_size,
-                part_size
+                part.size
             ));
         }
 
         let pb = AntumbraProgress::new(file_size);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Downloading...");
+        let mut progress_callback = pb.get_callback("Downloading...", "Download complete!");
 
-                if written >= total {
-                    pb.finish("Download complete!");
-                }
-            }
-        };
+        info!("Downloading to partition '{}'...", part.name);
 
-        info!("Downloading to partition '{}'...", self.partition);
-
-        match dev.download(&self.partition, file_size as usize, &mut reader, &mut progress_callback)
+        if let Err(e) =
+            dev.download(&part.name, file_size as usize, &mut reader, &mut progress_callback)
         {
-            Ok(_) => {}
-            Err(e) => {
-                pb.abandon("Download failed!");
-                return Err(e)?;
-            }
+            pb.abandon("Download failed!");
+            return Err(e)?;
         }
 
-        info!("Download to partition '{}' completed.", self.partition);
+        info!("Download to partition '{}' completed.", part.name);
 
         Ok(())
     }

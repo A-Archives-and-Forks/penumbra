@@ -12,7 +12,7 @@ use clap_num::maybe_hex;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -36,7 +36,7 @@ impl CommandMetadata for PokeArgs {
     }
 }
 
-impl MtkCommand for PokeArgs {
+impl DeviceCommand for PokeArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
@@ -61,16 +61,7 @@ impl MtkCommand for PokeArgs {
 
         let pb = AntumbraProgress::new(length);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Writing memory...");
-
-                if written >= total {
-                    pb.finish("Memory write completed!");
-                }
-            }
-        };
+        let mut progress_callback = pb.get_callback("Poking...", "Poke complete!");
 
         info!("Writing 0x{:X} bytes to address 0x{:08X}...", length, self.address);
 

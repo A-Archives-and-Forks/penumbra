@@ -14,7 +14,7 @@ use penumbra::Device;
 use penumbra::da::DAProtocol;
 use penumbra::da::xflash::flash::set_rsc_info;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -27,31 +27,26 @@ pub struct RscFlashArgs {
     pub file: PathBuf,
 }
 
-impl MtkCommand for RscFlashArgs {
+impl DeviceCommand for RscFlashArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
         state.connection_type = CONN_DA;
         state.flash_mode = 1;
-
-        info!("Flashing file {:?} to partition {} with RSC", self.file, self.partition);
 
         let file = File::open(&self.file)?;
         let mut reader = BufReader::new(file);
 
         let file_size = metadata(&self.file)?.len();
 
-        let part_size = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p.size as u64,
-            None => {
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
 
-        if file_size > part_size {
+        if file_size > part.size as u64 {
             return Err(anyhow::anyhow!(
                 "File size ({}) exceeds partition size ({}).",
                 file_size,
-                part_size
+                part.size
             ));
         }
 
@@ -64,26 +59,13 @@ impl MtkCommand for RscFlashArgs {
 
         let pb = AntumbraProgress::new(file_size);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Flashing...");
+        let mut progress_callback = pb.get_callback("Flashing RSC...", "RSC flash complete!");
 
-                if written >= total {
-                    pb.finish("Flash complete!");
-                }
-            }
-        };
+        info!("Flashing file {:?} to partition {} with RSC", self.file, part.name);
 
-        set_rsc_info(
-            xflash,
-            &self.partition,
-            file_size as usize,
-            &mut reader,
-            &mut progress_callback,
-        )?;
+        set_rsc_info(xflash, &part.name, file_size as usize, &mut reader, &mut progress_callback)?;
 
-        info!("Flashing to partition '{}' completed.", self.partition);
+        info!("Flashing to partition '{}' completed.", part.name);
 
         Ok(())
     }
@@ -114,7 +96,7 @@ impl CommandMetadata for XFlashArgs {
     }
 }
 
-impl MtkCommand for XFlashArgs {
+impl DeviceCommand for XFlashArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         match &self.command {
             XFlashSubcommand::RscFlash(cmd) => cmd.run(dev, state),

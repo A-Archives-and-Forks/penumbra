@@ -9,7 +9,7 @@ use human_bytes::human_bytes;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::state::PersistedDeviceState;
 
@@ -30,7 +30,7 @@ impl CommandMetadata for PgptArgs {
     }
 }
 
-impl MtkCommand for PgptArgs {
+impl DeviceCommand for PgptArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 

@@ -8,7 +8,7 @@ use clap::Args;
 use log::info;
 use penumbra::Device;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -33,41 +33,29 @@ impl CommandMetadata for FormatArgs {
     }
 }
 
-impl MtkCommand for FormatArgs {
+impl DeviceCommand for FormatArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
         state.connection_type = CONN_DA;
         state.flash_mode = 1;
 
-        let partition = match dev.dev_info.get_partition(&self.partition) {
-            Some(p) => p,
-            None => {
-                info!("Partition '{}' not found on device.", self.partition);
-                return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
-            }
+        let Some(part) = dev.dev_info.get_partition(&self.partition) else {
+            return Err(anyhow::anyhow!("Partition '{}' not found on device.", self.partition));
         };
 
-        let pb = AntumbraProgress::new(partition.size as u64);
+        let pb = AntumbraProgress::new(part.size as u64);
 
-        let mut progress_callback = {
-            let pb = &pb;
-            move |written: usize, total: usize| {
-                pb.update(written as u64, "Formatting...");
+        let mut progress_callback = pb.get_callback("Formatting...", "Format complete!");
 
-                if written >= total {
-                    pb.finish("Format complete!");
-                }
-            }
-        };
+        info!("Formatting partition '{}'", part.name);
 
-        match dev.format(&self.partition, &mut progress_callback) {
-            Ok(_) => {}
-            Err(e) => {
-                pb.abandon("Format failed!");
-                return Err(e)?;
-            }
+        if let Err(e) = dev.format(&part.name, &mut progress_callback) {
+            pb.abandon("Format failed!");
+            return Err(e)?;
         }
+
+        info!("Partition '{}' formatted.", part.name);
 
         Ok(())
     }

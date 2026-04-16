@@ -8,7 +8,7 @@ use clap::{Args, ValueEnum};
 use penumbra::Device;
 use penumbra::da::protocol::BootMode;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::state::PersistedDeviceState;
 
@@ -51,7 +51,7 @@ pub struct RebootArgs {
     pub action: RebootAction,
 }
 
-impl MtkCommand for RebootArgs {
+impl DeviceCommand for RebootArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 

@@ -12,7 +12,7 @@ use log::info;
 use penumbra::Device;
 use penumbra::da::DownloadProtocol;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -41,7 +41,7 @@ impl CommandMetadata for ReadAllArgs {
     }
 }
 
-impl MtkCommand for ReadAllArgs {
+impl DeviceCommand for ReadAllArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         let output_dir: &Path = &self.output_dir;
 
@@ -83,16 +83,9 @@ impl MtkCommand for ReadAllArgs {
             let part_size = p.size as u64;
             let pb = AntumbraProgress::new(part_size);
 
-            let mut progress_callback = {
-                let pb = &pb;
-                move |read: usize, total: usize| {
-                    pb.update(read as u64, "Reading...");
+            let mut progress_callback = pb.get_callback("Reading partition...", "Read complete!");
 
-                    if read >= total {
-                        pb.finish("Read complete!");
-                    }
-                }
-            };
+            info!("Reading partition '{}'...", p.name);
 
             match proto.read_flash(
                 p.address,

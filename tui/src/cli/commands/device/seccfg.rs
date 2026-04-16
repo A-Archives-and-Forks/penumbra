@@ -9,7 +9,7 @@ use log::info;
 use penumbra::Device;
 use penumbra::core::seccfg::LockFlag;
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::state::PersistedDeviceState;
 
@@ -36,7 +36,7 @@ impl CommandMetadata for SeccfgArgs {
     }
 }
 
-impl MtkCommand for SeccfgArgs {
+impl DeviceCommand for SeccfgArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 

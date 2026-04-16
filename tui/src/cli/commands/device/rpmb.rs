@@ -13,7 +13,7 @@ use log::info;
 use penumbra::Device;
 use penumbra::core::storage::{RpmbRegion, Storage};
 
-use crate::cli::MtkCommand;
+use crate::cli::DeviceCommand;
 use crate::cli::common::{CONN_DA, CommandMetadata};
 use crate::cli::helpers::AntumbraProgress;
 use crate::cli::state::PersistedDeviceState;
@@ -120,12 +120,10 @@ fn perform_rpmb_io(
     );
 
     let pb = AntumbraProgress::new(num_sectors as u64 * 256);
-    let mut progress_callback = |processed: usize, total: usize| {
-        pb.update(processed as u64, if is_read { "Reading RPMB..." } else { "Writing RPMB..." });
-        if processed >= total {
-            pb.finish(if is_read { "RPMB read completed!" } else { "RPMB write completed!" });
-        }
-    };
+    let mut progress_callback = pb.get_callback(
+        if is_read { "Reading RPMB..." } else { "Writing RPMB..." },
+        if is_read { "RPMB Read Complete!" } else { "RPMB Write Complete!" }
+    );
 
     if is_read {
         let file = File::create(file_path)?;
@@ -141,7 +139,7 @@ fn perform_rpmb_io(
     Ok(())
 }
 
-impl MtkCommand for RpmbArgs {
+impl DeviceCommand for RpmbArgs {
     fn run(&self, dev: &mut Device, state: &mut PersistedDeviceState) -> Result<()> {
         dev.enter_da_mode()?;
 
