@@ -2,6 +2,7 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
 */
+pub mod crash;
 pub mod download;
 pub mod erase;
 pub mod format;
@@ -21,6 +22,7 @@ pub mod writeflash;
 pub mod writeoffset;
 pub mod xflash;
 
+pub use crash::CrashArgs;
 pub use download::DownloadArgs;
 pub use erase::EraseArgs;
 pub use format::FormatArgs;
