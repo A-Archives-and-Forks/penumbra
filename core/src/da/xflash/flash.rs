@@ -4,7 +4,7 @@
 */
 use std::io::{Read, Write};
 
-use log::{debug, info};
+use log::debug;
 
 use crate::core::storage::PartitionKind;
 use crate::da::DownloadProtocol;
@@ -25,7 +25,7 @@ where
     W: Write + Send,
     F: FnMut(usize, usize) + Send,
 {
-    info!("Reading flash at address {:#X} with size {:#X}", addr, size);
+    debug!("Reading flash at address {:#X} with size {:#X}", addr, size);
 
     let storage_type = xflash.get_storage_type() as u32;
     let partition_type = section.as_u32();
@@ -55,7 +55,7 @@ where
 
     xflash.upload_data(size, writer, progress)?;
 
-    info!("Flash read completed, 0x{:X} bytes read.", size);
+    debug!("Flash read completed, 0x{:X} bytes read.", size);
 
     Ok(())
 }
@@ -74,7 +74,7 @@ where
 {
     get_packet_length(xflash)?;
 
-    info!("Writing flash at address {:#X} with size {:#X}", addr, size);
+    debug!("Writing flash at address {:#X} with size {:#X}", addr, size);
 
     let storage_type = xflash.get_storage_type() as u32;
     let partition_type = section.as_u32();
@@ -90,7 +90,7 @@ where
 
     xflash.download_data(size, reader, progress)?;
 
-    info!("Flash write completed, 0x{:X} bytes written.", size);
+    debug!("Flash write completed, 0x{:X} bytes written.", size);
 
     Ok(())
 }
@@ -105,7 +105,7 @@ pub fn erase_flash<F>(
 where
     F: FnMut(usize, usize) + Send,
 {
-    info!("Erasing flash at address {:#X} with size {:#X}", addr, size);
+    debug!("Erasing flash at address {:#X} with size {:#X}", addr, size);
 
     let storage_type = xflash.get_storage_type() as u32;
     let partition_type = section.as_u32();
@@ -129,7 +129,7 @@ where
     xflash.send_cmd(Cmd::EndDlInfo)?;
     status_ok!(xflash);
 
-    info!("Flash erase completed.");
+    debug!("Flash erase completed.");
     Ok(())
 }
 
@@ -160,7 +160,7 @@ where
     xflash.send_cmd(Cmd::Download)?;
     xflash.send_data(&[part_name.as_bytes(), &size.to_le_bytes()])?;
 
-    info!("Starting download to partition '{}' with size 0x{:X}", part_name, size);
+    debug!("Starting download to partition '{}' with size {:#X}", part_name, size);
 
     xflash.download_data(size, reader, progress)?;
 
@@ -168,7 +168,7 @@ where
     xflash.send_cmd(Cmd::EndDlInfo)?;
     status_ok!(xflash);
 
-    debug!("Download completed, 0x{:X} bytes sent.", size);
+    debug!("Download completed, {:#X} bytes sent.", size);
 
     Ok(())
 }
@@ -190,11 +190,11 @@ where
         le_u64!(size_data, 0) as usize
     };
 
-    info!("Starting readback of partition '{}' with size 0x{:X}", part_name, size);
+    debug!("Starting readback of partition '{}'", part_name);
 
     xflash.upload_data(size, writer, progress)?;
 
-    info!("Upload completed, 0x{:X} bytes received.", size);
+    debug!("Upload completed, 0x{:X} bytes received.", size);
 
     Ok(())
 }
@@ -220,7 +220,7 @@ where
     xflash.conn.write(&hdr)?;
     xflash.conn.write(part_name.as_bytes())?;
 
-    info!("Formatting partition '{}'", part_name);
+    debug!("Formatting partition '{}'", part_name);
 
     xflash.progress_report(part.size, progress)?;
 
@@ -228,7 +228,7 @@ where
     xflash.send_cmd(Cmd::EndDlInfo)?;
     status_ok!(xflash);
 
-    info!("Partition '{}' formatted.", part_name);
+    debug!("Partition '{}' formatted.", part_name);
     Ok(())
 }
 
