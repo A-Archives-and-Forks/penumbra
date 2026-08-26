@@ -52,12 +52,12 @@ fn main() -> Result<()> {
         use app::App;
 
         let mut terminal = ratatui::init();
-        let mut app = App::new(&args);
+        let mut app = App::new(&args, config);
 
-        let app_result = app.run(&mut terminal).await;
+        let app_result = app.run(&mut terminal);
 
         ratatui::restore();
-        return app_result;
+        app_result
     }
 
     #[cfg(not(feature = "tui"))]
