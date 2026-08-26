@@ -16,7 +16,7 @@ mod themes;
 
 mod cli;
 mod config;
-mod error;
+mod helpers;
 mod logger;
 
 use anyhow::Result;
