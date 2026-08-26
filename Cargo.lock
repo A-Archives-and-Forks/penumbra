@@ -97,7 +97,7 @@ dependencies = [
  "human_bytes",
  "indicatif",
  "log",
- "penumbra",
+ "penumbra-mtk",
  "rand",
  "ratatui",
  "ratatui-explorer",

@@ -9,7 +9,7 @@ members = [
 edition = "2024"
 version = "1.1.0"
 license = "AGPL-3.0-or-later"
-authors = ["Shomy <shomy@shomy.is-a.dev>"]
+authors = ["Shomy <git@itssho.my>"]
 homepage = "https://penumbra.itssho.my"
 repository = "https://github.com/shomykohai/penumbra"
 
