@@ -869,6 +869,25 @@ impl DownloadProtocol for Xml {
         parts.into_iter()
     }
 
+    fn read_efuses<W: Writer, P: MtkPort>(&mut self, port: &mut P, writer: W) -> Result<()> {
+        const EFUSE_XML_BUF_LEN: usize = 0x5000;
+
+        xmlcmd!(self, port, ReadEfuse)?;
+        self.upload_data(port, EFUSE_XML_BUF_LEN, writer, NOOP_PROGRESS)?;
+        self.lifetime_ack(port, XmlCmdLifetime::CmdEnd)
+    }
+
+    fn write_efuses<R: Reader, P: MtkPort>(
+        &mut self,
+        port: &mut P,
+        reader: R,
+        size: usize,
+    ) -> Result<()> {
+        xmlcmd!(self, port, WriteEfuse)?;
+        self.download_data(port, size, reader, NOOP_PROGRESS)?;
+        self.lifetime_ack(port, XmlCmdLifetime::CmdEnd)
+    }
+
     fn handle_sla<P: MtkPort>(&mut self, port: &mut P, da: &DaEntry) -> Result<()> {
         xmlcmd!(self, port, GetSysProperty, "DA.SLA")?;
 

@@ -781,6 +781,48 @@ impl<'a> DownloadProtocol for XFlash<'a> {
         parts.into_iter()
     }
 
+    fn read_efuses<W: Writer, P: MtkPort>(&mut self, port: &mut P, mut writer: W) -> Result<()> {
+        let yield_arg = [0u8; 0xF8];
+
+        self.send_cmd(port, Cmd::ReadEfuse)?;
+        self.send(port, &yield_arg)?;
+
+        let efuse_data = self.read_data(port)?;
+
+        writer.write_all(&efuse_data)?;
+
+        self.send(port, &0u32.to_le_bytes())?;
+
+        Ok(())
+    }
+
+    fn write_efuses<R: Reader, P: MtkPort>(
+        &mut self,
+        port: &mut P,
+        mut reader: R,
+        size: usize,
+    ) -> Result<()> {
+        let yield_arg = [0u8; 0xF8];
+
+        let mut efuse_data = [0u8; 0x42D4];
+
+        if size < efuse_data.len() {
+            return Err(PenumbraError::BufferTooSmall.into());
+        }
+
+        reader.read_exact(&mut efuse_data)?;
+
+        self.send_cmd(port, Cmd::WriteEfuse)?;
+        self.send_data(port, &[&efuse_data, &yield_arg])?;
+
+        // Efuse writing can take a bit, so
+        port.set_timeout(MAX_TIMEOUT)?;
+        let result = status_ok!(self, port);
+        port.set_timeout(MIN_TIMEOUT)?;
+
+        result
+    }
+
     fn handle_sla<P: MtkPort>(&mut self, port: &mut P, da: &DaEntry) -> Result<()> {
         let Ok(resp) = self.devctrl(port, Cmd::SlaEnabledStatus, None) else {
             return Ok(());

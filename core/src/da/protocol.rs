@@ -247,6 +247,18 @@ pub trait DownloadProtocol {
         self.get_devinfo().get_partition(name)
     }
 
+    /* Efuses */
+
+    /* Reads efuses and writes the raw response into the provided buffer */
+    fn read_efuses<W: Writer, P: MtkPort>(&mut self, port: &mut P, writer: W) -> Result<()>;
+    /* Writes efuses from the provided buffer */
+    fn write_efuses<R: Reader, P: MtkPort>(
+        &mut self,
+        port: &mut P,
+        reader: R,
+        size: usize,
+    ) -> Result<()>;
+
     /* Security */
 
     /* Handles DA SLA.
