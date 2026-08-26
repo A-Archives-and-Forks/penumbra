@@ -24,17 +24,26 @@ use clap::Parser;
 use cli::{CliArgs, run_cli};
 use logger::init_logger;
 
-#[tokio::main]
-async fn main() -> Result<()> {
+use crate::auth::init_auth;
+use crate::config::AntumbraConfig;
+
+fn main() -> Result<()> {
     let args = CliArgs::parse();
 
-    let cli_mode = args.cli || args.command.is_some() || !cfg!(feature = "tui");
-    let tui_mode = !cli_mode;
+    #[cfg(all(windows, feature = "tui"))]
+    let tui = args.tui || !cli_or_gui::is_launched_from_terminal();
 
-    init_logger(tui_mode, args.verbose);
+    #[cfg(not(all(windows, feature = "tui")))]
+    let tui = args.tui;
 
-    if cli_mode {
-        return run_cli(&args).await;
+    init_logger(tui, args.verbose);
+
+    let config = AntumbraConfig::load()?;
+
+    init_auth(config.clone())?;
+
+    if !tui || !cfg!(feature = "tui") {
+        return run_cli(&args, &config);
     }
 
     #[cfg(feature = "tui")]
@@ -50,5 +59,6 @@ async fn main() -> Result<()> {
         return app_result;
     }
 
+    #[cfg(not(feature = "tui"))]
     unreachable!()
 }
