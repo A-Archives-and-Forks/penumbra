@@ -2,7 +2,6 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
 */
-pub mod connection;
 pub mod core;
 pub mod da;
 pub mod device;
@@ -17,6 +16,8 @@ pub use core::log_buffer::{DeviceLog, OnPush};
 pub use core::seccfg::LockFlag;
 pub use core::storage::{
     EmmcPartition,
+pub mod port;
+mod preloader;
     Gpt,
     Partition,
     PartitionKind,
@@ -27,7 +28,6 @@ pub use core::storage::{
     UfsPartition,
 };
 
-pub use connection::port::{MTKPort, find_mtk_port};
 pub use da::protocol::{BootMode, DAProtocol, DownloadProtocol};
 pub use da::{DA, DAEntryRegion, DAFile, DAType, XFlash, Xml};
 pub use device::{Device, DeviceBuilder};
