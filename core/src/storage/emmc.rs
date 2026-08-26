@@ -2,15 +2,15 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
 */
-
 use wincode::{Deserialize, SchemaRead, SchemaWrite};
 
-use crate::core::storage::{PartitionKind, Storage, StorageType};
-use crate::error::{Error, Result};
-use crate::utilities::xml::{get_tag, get_tag_usize};
+use crate::error::Result;
+use crate::storage::{PartitionKind, Storage, StorageType};
+use crate::traits::FromBytes;
+use crate::utils::xml::{get_tag, get_tag_usize};
 
 /// Represents eMMC storage information.
-#[derive(Debug, SchemaRead, SchemaWrite, Clone)]
+#[derive(Default, Debug, SchemaRead, SchemaWrite, Clone, FromBytes)]
 pub struct EmmcInfo {
     /// eMMC kind (EMMC or SDMMC)
     pub kind: u32,
@@ -36,8 +36,17 @@ pub struct EmmcInfo {
     pub cid: [u8; 16],
     /// eMMC firmware version.
     pub fwver: [u8; 8],
-    /// Other fields
-    reserved: [u8; 8],
+}
+
+/// MediaTek broke ABI, and newer DA return more data.
+#[repr(C)]
+#[derive(Debug, Default, SchemaRead, SchemaWrite, Clone, FromBytes)]
+pub struct EmmcInfoExt {
+    pub pre_eol_info: u8,
+    pub life_time_est_a: u8,
+    pub life_time_est_b: u8,
+    reserved: u8,
+    pub lifetime_status: u32,
 }
 
 /// Represents eMMC partitions types.
@@ -65,28 +74,52 @@ pub enum EmmcPartition {
     Boot1Boot2 = 10,
 }
 
-impl EmmcPartition {
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Self::Boot1 => "EMMC-BOOT1",
-            Self::Boot2 => "EMMC-BOOT2",
-            Self::Rpmb => "EMMC-RPMB",
-            Self::Gp1 => "EMMC-GP1",
-            Self::Gp2 => "EMMC-GP2",
-            Self::Gp3 => "EMMC-GP3",
-            Self::Gp4 => "EMMC-GP4",
-            Self::User => "EMMC-USER",
-            Self::End => "EMMC-END",
-            Self::Boot1Boot2 => "EMMC-BOOT1BOOT2",
+impl From<EmmcPartition> for &'static str {
+    fn from(val: EmmcPartition) -> Self {
+        match val {
+            EmmcPartition::Boot1 => "EMMC-BOOT1",
+            EmmcPartition::Boot2 => "EMMC-BOOT2",
+            EmmcPartition::Rpmb => "EMMC-RPMB",
+            EmmcPartition::Gp1 => "EMMC-GP1",
+            EmmcPartition::Gp2 => "EMMC-GP2",
+            EmmcPartition::Gp3 => "EMMC-GP3",
+            EmmcPartition::Gp4 => "EMMC-GP4",
+            EmmcPartition::User => "EMMC-USER",
+            EmmcPartition::End => "EMMC-END",
+            EmmcPartition::Boot1Boot2 => "EMMC-BOOT1BOOT2",
         }
     }
 }
 
-/// Represents eMMC storage device.
-#[derive(Debug, Clone)]
+#[derive(Default, Debug, Clone)]
 pub struct EmmcStorage {
     /// eMMC storage information.
     pub info: EmmcInfo,
+    /// Additional fields returned by newer DA versions.
+    pub info_ext: EmmcInfoExt,
+}
+
+impl FromBytes for EmmcStorage {
+    const SIZE: usize = size_of::<EmmcInfo>();
+
+    fn from_bytes(raw: &[u8]) -> Option<Self> {
+        if raw.len() < Self::SIZE {
+            return None;
+        }
+        let info = EmmcInfo::from_bytes(&raw[0..Self::SIZE])?;
+
+        if info.kind != StorageType::Emmc as u32 && info.kind != StorageType::Sdmmc as u32 {
+            return None;
+        }
+
+        if raw.len() >= Self::SIZE + EmmcInfoExt::SIZE {
+            let info_ext =
+                EmmcInfoExt::from_bytes(&raw[Self::SIZE..Self::SIZE + EmmcInfoExt::SIZE])?;
+            Some(Self { info, info_ext })
+        } else {
+            Some(Self { info, info_ext: EmmcInfoExt::default() })
+        }
+    }
 }
 
 impl Storage for EmmcStorage {
@@ -143,17 +176,7 @@ impl Storage for EmmcStorage {
 }
 
 impl EmmcStorage {
-    pub fn from_response(data: &[u8]) -> Result<Self> {
-        if data.len() < 96 {
-            return Err(Error::penumbra("Emmc response data too short"));
-        }
-
-        let storage = Self { info: EmmcInfo::deserialize(data).unwrap() };
-
-        Ok(storage)
-    }
-
-    pub fn from_xml_response(xml: &str) -> Result<Self> {
+    pub fn from_xml(xml: &str) -> Result<Self> {
         let block_size = get_tag_usize(xml, "emmc/block_size")? as u32;
 
         let boot1_size = get_tag_usize(xml, "emmc/boot1_size")? as u64;
@@ -183,8 +206,8 @@ impl EmmcStorage {
                 user_size,
                 cid,
                 fwver: [0; 8],
-                reserved: [0; 8],
             },
+            ..Default::default()
         })
     }
 }
