@@ -5,13 +5,14 @@
 use std::collections::BTreeMap;
 use std::fmt::Display;
 
-use xmlcmd_derive::XmlCommand;
+use penumbra_macros::XmlCommand;
 
-/// Each header contains this, to identify the DataType.
-/// V6 doesn't seem to use anything other than this.
-pub const DT_PROTOCOL_FLOW: u32 = 0x1;
 pub const CMD_START: &[u8] = b"<command>CMD:START</command>";
 pub const CMD_END: &[u8] = b"<command>CMD:END</command>";
+pub const CMD_DOWNLOAD_FILE: &str = "CMD:DOWNLOAD-FILE";
+pub const CMD_UPLOAD_FILE: &str = "CMD:UPLOAD-FILE";
+pub const CMD_PROGRESS_REPORT: &str = "CMD:PROGRESS-REPORT";
+pub const CMD_FILE_SYSTEM_OP: &str = "CMD:FILE-SYS-OPERATION";
 
 /// Perform a (fake) file system operation
 #[allow(dead_code)]
@@ -29,15 +30,39 @@ impl FileSystemOp {
         match self {
             Self::MkDir => "MKDIR\u{0}".to_string(),
             Self::Exists => "NOT-EXISTS\u{0}".to_string(), // To avoid more reads
-            Self::FileSize(size) => format!("{:X}", size),
+            Self::FileSize(size) => format!("{:X}\u{0}", size),
             Self::RemoveAll => "REMOVE-ALL\u{0}".to_string(),
             Self::Remove => "REMOVE\u{0}".to_string(),
         }
     }
 }
 
+impl From<FileSystemOp> for String {
+    fn from(op: FileSystemOp) -> Self {
+        op.default()
+    }
+}
+
+impl From<String> for FileSystemOp {
+    fn from(s: String) -> Self {
+        Self::from(s.as_str())
+    }
+}
+
+impl From<&str> for FileSystemOp {
+    fn from(s: &str) -> Self {
+        match s {
+            "MKDIR" => Self::MkDir,
+            "NOT-EXISTS" => Self::Exists,
+            "REMOVE-ALL" => Self::RemoveAll,
+            "REMOVE" => Self::Remove,
+            _ => usize::from_str_radix(s, 16).map_or(Self::Exists, Self::FileSize),
+        }
+    }
+}
+
 /// Lifetime of an XML command
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub enum XmlCmdLifetime {
     CmdStart,
     CmdEnd,
@@ -72,8 +97,8 @@ pub struct SetRuntimeParameter {
     da_log_level: String,
     #[xml(tag = "log_channel")]
     log_channel: String,
-    #[xml(tag = "system_os", value = "LINUX")]
-    system_os: &'static str,
+    #[xml(tag = "system_os")]
+    system_os: String,
     #[xml(custom_arg = "adv", tag = "initialize_dram", value = "YES")]
     init_dram: &'static str,
 }
@@ -114,6 +139,12 @@ pub struct SecurityGetDevFwInfo {
 
 #[derive(XmlCommand)]
 pub struct SecuritySetFlashPolicy {
+    #[xml(tag = "source_file")]
+    source_file: String,
+}
+
+#[derive(XmlCommand)]
+pub struct SecuritySetAllinoneSignature {
     #[xml(tag = "source_file")]
     source_file: String,
 }
@@ -197,6 +228,34 @@ pub struct SetBootMode {
     mobile_log: String,
     #[xml(tag = "adb")]
     adb: String,
+}
+
+#[derive(XmlCommand)]
+pub struct ReadEfuse {
+    #[allow(dead_code)]
+    #[xml(tag = "target_file", value = "MEM://0x0:0x200000")]
+    target_file: &'static str,
+}
+
+#[derive(XmlCommand)]
+pub struct WriteEfuse {
+    #[allow(dead_code)]
+    #[xml(tag = "source_file", value = "MEM://0x0:0x200000")]
+    source_file: &'static str,
+}
+
+#[derive(XmlCommand)]
+pub struct FlashUpdate {
+    #[xml(tag = "source_file", value = "./scatter.xml")]
+    source_file: &'static str,
+    #[cfg(windows)]
+    #[xml(tag = "path_separator", value = "\\")]
+    path_separator: &'static str,
+    #[cfg(unix)]
+    #[xml(tag = "path_separator", value = "/")]
+    path_separator: &'static str,
+    #[xml(tag = "backup_folder", value = ".")]
+    backup_folder: &'static str,
 }
 
 pub fn create_cmd<C: XmlCommand>(cmd: &C) -> String {
