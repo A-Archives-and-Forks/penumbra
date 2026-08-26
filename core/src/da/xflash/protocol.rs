@@ -992,6 +992,15 @@ impl<'a> DownloadProtocolExt for XFlash<'a> {
         Ok(())
     }
 
+    fn set_rpmb_lock_state<P: MtkPort>(
+        &mut self,
+        _port: &mut P,
+        _state: hacc::LockState,
+    ) -> Result<()> {
+        /* V5 does not support the default RPMB mtk lock state */
+        Err(PenumbraError::RpmbLockStateNotSupported.into())
+    }
+
     fn peek<W: Writer, F: ProgressCallback, P: MtkPort>(
         &mut self,
         port: &mut P,

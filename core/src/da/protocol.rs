@@ -287,6 +287,13 @@ pub trait DownloadProtocolExt {
         state: hacc::LockState,
     ) -> Result<()>;
 
+    /* Sets the lock state in RPMB (UFS only) */
+    fn set_rpmb_lock_state<P: MtkPort>(
+        &mut self,
+        port: &mut P,
+        state: hacc::LockState,
+    ) -> Result<()>;
+
     /* Memory */
 
     /* Read memory at the given address with the given length */

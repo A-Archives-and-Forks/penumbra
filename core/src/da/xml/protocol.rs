@@ -1077,6 +1077,31 @@ impl DownloadProtocolExt for Xml {
         )
     }
 
+    fn set_rpmb_lock_state<P: MtkPort>(
+        &mut self,
+        port: &mut P,
+        state: hacc::LockState,
+    ) -> Result<()> {
+        use hacc::SecRpmbInfo;
+
+        if self.get_storage_type(port) != StorageType::Ufs {
+            return Err(PenumbraError::RpmbLockStateNotSupported.into());
+        }
+
+        let mut buf = [0u8; size_of::<SecRpmbInfo>()];
+
+        self.read_rpmb(port, crate::RpmbRegion::R1, 0, 1, buf.as_mut_slice(), NOOP_PROGRESS)?;
+
+        let mut info =
+            SecRpmbInfo::try_read(&buf).map_err(|_| PenumbraError::RpmbLockStateNotSupported)?;
+
+        info.set_lock_state(state);
+
+        info.try_write(&mut buf)?;
+
+        self.write_rpmb(port, crate::RpmbRegion::R1, 0, 1, buf.as_slice(), NOOP_PROGRESS)
+    }
+
     fn peek<W: Writer, F: ProgressCallback, P: MtkPort>(
         &mut self,
         port: &mut P,
