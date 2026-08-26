@@ -14,6 +14,7 @@ pub use welcome::WelcomePage;
 use crate::app::AppCtx;
 
 pub const LOGO: &str = include_str!("../logo.txt");
+pub const LOGO_ASCII: &str = include_str!("../logo_ascii.txt");
 
 pub trait Page {
     fn render(&mut self, frame: &mut Frame<'_>, ctx: &mut AppCtx);
