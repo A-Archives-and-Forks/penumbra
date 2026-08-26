@@ -1,17 +1,18 @@
 /*
     SPDX-License-Identifier: AGPL-3.0-or-later
-    SPDX-FileCopyrightText: 2025 Shomy
+    SPDX-FileCopyrightText: 2025-2026 Shomy
 */
 
 use super::ArchAnalyzer;
+use crate::utils::analysis::Arch;
 
 pub struct ArmAnalyzer {
-    data: Vec<u8>,
+    data: Box<[u8]>,
     base_addr: u64,
 }
 
 impl ArmAnalyzer {
-    pub const fn new(data: Vec<u8>, base_addr: u64) -> Self {
+    pub const fn new(data: Box<[u8]>, base_addr: u64) -> Self {
         Self { data, base_addr }
     }
 
@@ -230,31 +231,81 @@ impl ArmAnalyzer {
         None
     }
 
-    fn resolve_register_value(
+    fn resolve_reg_recursive(
         &self,
-        at_offset: usize,
+        start_off: usize,
+        end_limit: usize,
         target_reg: u8,
-        lookback: usize,
+        depth: usize,
     ) -> Option<u64> {
-        let start = at_offset.saturating_sub(lookback * 4);
-        let mut reg = target_reg;
-        let mut off = at_offset;
+        if depth > 10 || start_off < end_limit {
+            return None;
+        }
 
-        while off >= start {
-            let instr = self.read_u32(off)?;
+        let mut current_reg = target_reg;
+        let mut known_high_16: Option<u32> = None;
+        let mut off = start_off;
 
+        while off >= end_limit {
+            let Some(instr) = self.read_u32(off) else { break };
             let pc = self.base_addr + off as u64;
-            if let Some((rd, addr)) = self.decode_ldr_pc(instr, pc)
-                && rd == reg
+
+            if let Some((rd, imm16)) = self.decode_movt(instr)
+                && rd == current_reg
             {
-                let pool_off = self.va_to_offset(addr)?;
-                return self.read_u32(pool_off).map(|v| v as u64);
+                known_high_16 = Some(imm16 << 16);
+                if off < 4 {
+                    break;
+                }
+                off -= 4;
+                continue;
+            }
+
+            if let Some((rd, imm16)) = self.decode_movw(instr)
+                && rd == current_reg
+            {
+                let mut val = imm16 as u64;
+                if let Some(high) = known_high_16 {
+                    val |= high as u64;
+                }
+                return Some(val);
+            }
+
+            if let Some((rn, rm, rd)) = self.decode_sub_reg(instr)
+                && rd == current_reg
+            {
+                if off < 4 {
+                    return None;
+                }
+                let prev_off = off - 4;
+
+                let val_n = self.resolve_reg_recursive(prev_off, end_limit, rn, depth + 1)?;
+                let val_m = self.resolve_reg_recursive(prev_off, end_limit, rm, depth + 1)?;
+
+                let mut val = val_n.wrapping_sub(val_m);
+
+                if let Some(high) = known_high_16 {
+                    val = (val & 0xFFFF) | (high as u64);
+                }
+                return Some(val);
+            }
+
+            if let Some((rd, addr)) = self.decode_ldr_pc(instr, pc)
+                && rd == current_reg
+            {
+                let pool_off = self.va_to_off(addr)?;
+                let mut val = self.read_u32(pool_off)? as u64;
+
+                if let Some(high) = known_high_16 {
+                    val = (val & 0xFFFF) | (high as u64);
+                }
+                return Some(val);
             }
 
             if let Some((rm, rd)) = self.decode_mov(instr)
-                && rd == reg
+                && rd == current_reg
             {
-                reg = rm;
+                current_reg = rm;
             }
 
             if off < 4 {
@@ -268,7 +319,7 @@ impl ArmAnalyzer {
 }
 
 impl ArchAnalyzer for ArmAnalyzer {
-    fn va_to_offset(&self, va: u64) -> Option<usize> {
+    fn va_to_off(&self, va: u64) -> Option<usize> {
         if va < self.base_addr {
             return None;
         }
@@ -279,44 +330,44 @@ impl ArchAnalyzer for ArmAnalyzer {
         Some(offset)
     }
 
-    fn offset_to_va(&self, offset: usize) -> Option<u64> {
+    fn off_to_va(&self, offset: usize) -> Option<u64> {
         if offset >= self.data.len() {
             return None;
         }
         Some(self.base_addr + offset as u64)
     }
 
-    fn find_function_from_string(&self, s: &str) -> Option<usize> {
-        let xref = self.find_string_xref(s)?;
+    fn fn_from_str(&self, s: &str) -> Option<usize> {
+        let xref = self.str_xref(s)?;
         self.find_function_start(xref)
     }
 
     fn find_call_arg_from_string(&self, s: &str, arg_idx: u8) -> Option<u64> {
-        let xref = self.find_string_xref(s)?;
+        let xref = self.str_xref(s)?;
         let len = self.data.len();
 
         for off in (xref..len).step_by(4) {
             let instr = self.read_u32(off)?;
 
             if self.decode_bl(instr, 0).is_some() {
-                return self.resolve_register_value(off, arg_idx, 50);
+                return self.reg_value(off, arg_idx, 50);
             }
         }
 
         None
     }
 
-    fn get_bl_target(&self, offset: usize) -> Option<u64> {
+    fn bl_target(&self, offset: usize) -> Option<u64> {
         let instr = self.read_u32(offset)?;
-        let pc = self.offset_to_va(offset)?;
+        let pc = self.off_to_va(offset)?;
         self.decode_bl(instr, pc)
     }
 
-    fn get_b_target(&self, offset: usize) -> Option<u64> {
-        self.get_bl_target(offset)
+    fn b_target(&self, offset: usize) -> Option<u64> {
+        self.bl_target(offset)
     }
 
-    fn get_next_bl_from_off(&self, offset: usize) -> Option<usize> {
+    fn next_bl_from_off(&self, offset: usize) -> Option<usize> {
         let len = self.data.len();
 
         for off in (offset..len).step_by(4) {
@@ -335,7 +386,7 @@ impl ArchAnalyzer for ArmAnalyzer {
         None
     }
 
-    fn get_next_b_from_off(&self, offset: usize) -> Option<usize> {
+    fn next_b_from_off(&self, offset: usize) -> Option<usize> {
         let len = self.data.len();
 
         for off in (offset..len).step_by(4) {
@@ -354,15 +405,26 @@ impl ArchAnalyzer for ArmAnalyzer {
         None
     }
 
-    fn find_string_xref(&self, target_str: &str) -> Option<usize> {
+    fn str_xref(&self, target_str: &str) -> Option<usize> {
         self.find_string_xref_inner(target_str)
     }
 
-    fn find_function_start_from_off(&self, offset: usize) -> Option<usize> {
+    fn fn_from_off(&self, offset: usize) -> Option<usize> {
         self.find_function_start(offset)
     }
 
     fn data(&self) -> &[u8] {
         &self.data
+    }
+
+    fn arch(&self) -> Arch {
+        Arch::Arm
+    }
+
+    fn reg_value(&self, at_offset: usize, target_reg: u8, lookback: usize) -> Option<u64> {
+        let start_off = at_offset.saturating_sub(4);
+        let end_limit = at_offset.saturating_sub(lookback * 4);
+
+        self.resolve_reg_recursive(start_off, end_limit, target_reg, 0)
     }
 }

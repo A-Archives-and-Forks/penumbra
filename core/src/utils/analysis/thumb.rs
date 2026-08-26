@@ -4,14 +4,15 @@
 */
 
 use super::ArchAnalyzer;
+use crate::utils::analysis::Arch;
 
 pub struct Thumb2Analyzer {
-    data: Vec<u8>,
+    data: Box<[u8]>,
     base_addr: u64,
 }
 
 impl Thumb2Analyzer {
-    pub const fn new(data: Vec<u8>, base_addr: u64) -> Self {
+    pub const fn new(data: Box<[u8]>, base_addr: u64) -> Self {
         Self { data, base_addr }
     }
 
@@ -243,7 +244,7 @@ impl Thumb2Analyzer {
                         if addr == str_va as u64 {
                             return Some(offset);
                         }
-                        if let Some(pool_off) = self.va_to_offset(addr)
+                        if let Some(pool_off) = self.va_to_off(addr)
                             && let Some(val) = self.read_u32(pool_off)
                             && val as u64 == str_va as u64
                         {
@@ -261,7 +262,7 @@ impl Thumb2Analyzer {
                     let pc = self.base_addr + offset as u64;
                     let target = ((pc + 4) & !3) + (imm8 << 2);
 
-                    if let Some(pool_off) = self.va_to_offset(target)
+                    if let Some(pool_off) = self.va_to_off(target)
                         && let Some(val) = self.read_u32(pool_off)
                     {
                         let val_clean = val & !1;
@@ -320,12 +321,130 @@ impl Thumb2Analyzer {
         None
     }
 
-    fn resolve_register_value(
-        &self,
-        at_offset: usize,
-        target_reg: u8,
-        lookback: usize,
-    ) -> Option<u64> {
+    const fn iter_instructions_from(&self, start: usize) -> Thumb2InstrIter<'_> {
+        Thumb2InstrIter { analyzer: self, offset: start }
+    }
+}
+
+struct Thumb2InstrIter<'a> {
+    analyzer: &'a Thumb2Analyzer,
+    offset: usize,
+}
+
+impl<'a> Iterator for Thumb2InstrIter<'a> {
+    type Item = (usize, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.offset >= self.analyzer.data.len() {
+            return None;
+        }
+        let off = self.offset;
+        let sz = self.analyzer.instruction_size(off);
+        if off + sz > self.analyzer.data.len() {
+            return None;
+        }
+        self.offset += sz;
+        Some((off, sz))
+    }
+}
+
+impl ArchAnalyzer for Thumb2Analyzer {
+    fn va_to_off(&self, va: u64) -> Option<usize> {
+        let va_clean = va & !1;
+        if va_clean < self.base_addr {
+            return None;
+        }
+
+        let offset = (va_clean - self.base_addr) as usize;
+        if offset >= self.data.len() {
+            return None;
+        }
+        Some(offset)
+    }
+
+    fn off_to_va(&self, offset: usize) -> Option<u64> {
+        if offset >= self.data.len() {
+            return None;
+        }
+
+        Some(self.base_addr + offset as u64)
+    }
+
+    fn fn_from_str(&self, s: &str) -> Option<usize> {
+        let xref = self.str_xref(s)?;
+        self.find_function_start(xref)
+    }
+
+    fn find_call_arg_from_string(&self, s: &str, arg_idx: u8) -> Option<u64> {
+        let xref = self.str_xref(s)?;
+
+        for (off, sz) in self.iter_instructions_from(xref) {
+            if sz == 4 {
+                let instr = self.read_thumb32(off)?;
+                if (instr & 0xF800D000) == 0xF000D000 {
+                    return self.reg_value(off, arg_idx, 50);
+                }
+            }
+        }
+
+        None
+    }
+
+    fn bl_target(&self, offset: usize) -> Option<u64> {
+        let instr = self.read_thumb32(offset)?;
+        let pc = self.base_addr + offset as u64;
+        self.decode_bl(instr, pc)
+    }
+
+    fn b_target(&self, offset: usize) -> Option<u64> {
+        self.bl_target(offset)
+    }
+
+    fn next_bl_from_off(&self, offset: usize) -> Option<usize> {
+        for (off, sz) in self.iter_instructions_from(offset) {
+            if sz == 4
+                && let Some(instr) = self.read_thumb32(off)
+            {
+                let hw2 = instr & 0xFFFF;
+                if (instr >> 27) == 0b11110 && (hw2 & 0xD000) == 0xD000 {
+                    return Some(off);
+                }
+            }
+        }
+        None
+    }
+
+    fn next_b_from_off(&self, offset: usize) -> Option<usize> {
+        for (off, sz) in self.iter_instructions_from(offset) {
+            if sz == 4
+                && let Some(instr) = self.read_thumb32(off)
+            {
+                let hw2 = instr & 0xFFFF;
+                if (instr >> 27) == 0b11110 && (hw2 & 0xD000) == 0x9000 {
+                    return Some(off);
+                }
+            }
+        }
+        None
+    }
+
+    fn str_xref(&self, target_str: &str) -> Option<usize> {
+        self.find_string_xref_inner(target_str)
+    }
+
+    fn fn_from_off(&self, offset: usize) -> Option<usize> {
+        self.find_function_start(offset)
+    }
+
+    fn data(&self) -> &[u8] {
+        &self.data
+    }
+
+    fn arch(&self) -> Arch {
+        Arch::Thumb2
+    }
+
+    fn reg_value(&self, at_offset: usize, target_reg: u8, lookback: usize) -> Option<u64> {
         let start = at_offset.saturating_sub(lookback * 4);
         let mut reg = target_reg;
         let mut off = at_offset;
@@ -340,7 +459,7 @@ impl Thumb2Analyzer {
                 if let Some((rd, addr)) = self.decode_ldr_pc(instr, pc)
                     && rd == reg
                 {
-                    let pool_off = self.va_to_offset(addr)?;
+                    let pool_off = self.va_to_off(addr)?;
                     return self.read_u32(pool_off).map(|v| v as u64);
                 }
 
@@ -378,124 +497,5 @@ impl Thumb2Analyzer {
         }
 
         None
-    }
-
-    const fn iter_instructions_from(&self, start: usize) -> Thumb2InstrIter<'_> {
-        Thumb2InstrIter { analyzer: self, offset: start }
-    }
-}
-
-struct Thumb2InstrIter<'a> {
-    analyzer: &'a Thumb2Analyzer,
-    offset: usize,
-}
-
-impl<'a> Iterator for Thumb2InstrIter<'a> {
-    type Item = (usize, usize);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.offset >= self.analyzer.data.len() {
-            return None;
-        }
-        let off = self.offset;
-        let sz = self.analyzer.instruction_size(off);
-        if off + sz > self.analyzer.data.len() {
-            return None;
-        }
-        self.offset += sz;
-        Some((off, sz))
-    }
-}
-
-impl ArchAnalyzer for Thumb2Analyzer {
-    fn va_to_offset(&self, va: u64) -> Option<usize> {
-        let va_clean = va & !1;
-        if va_clean < self.base_addr {
-            return None;
-        }
-
-        let offset = (va_clean - self.base_addr) as usize;
-        if offset >= self.data.len() {
-            return None;
-        }
-        Some(offset)
-    }
-
-    fn offset_to_va(&self, offset: usize) -> Option<u64> {
-        if offset >= self.data.len() {
-            return None;
-        }
-
-        Some((self.base_addr + offset as u64) | 1)
-    }
-
-    fn find_function_from_string(&self, s: &str) -> Option<usize> {
-        let xref = self.find_string_xref(s)?;
-        self.find_function_start(xref)
-    }
-
-    fn find_call_arg_from_string(&self, s: &str, arg_idx: u8) -> Option<u64> {
-        let xref = self.find_string_xref(s)?;
-
-        for (off, sz) in self.iter_instructions_from(xref) {
-            if sz == 4 {
-                let instr = self.read_thumb32(off)?;
-                if (instr & 0xF800D000) == 0xF000D000 {
-                    return self.resolve_register_value(off, arg_idx, 50);
-                }
-            }
-        }
-
-        None
-    }
-
-    fn get_bl_target(&self, offset: usize) -> Option<u64> {
-        let instr = self.read_thumb32(offset)?;
-        let pc = self.base_addr + offset as u64;
-        self.decode_bl(instr, pc)
-    }
-
-    fn get_b_target(&self, offset: usize) -> Option<u64> {
-        self.get_bl_target(offset)
-    }
-
-    fn get_next_bl_from_off(&self, offset: usize) -> Option<usize> {
-        for (off, sz) in self.iter_instructions_from(offset) {
-            if sz == 4
-                && let Some(instr) = self.read_thumb32(off)
-            {
-                let hw2 = instr & 0xFFFF;
-                if (instr >> 27) == 0b11110 && (hw2 & 0xD000) == 0xD000 {
-                    return Some(off);
-                }
-            }
-        }
-        None
-    }
-
-    fn get_next_b_from_off(&self, offset: usize) -> Option<usize> {
-        for (off, sz) in self.iter_instructions_from(offset) {
-            if sz == 4
-                && let Some(instr) = self.read_thumb32(off)
-            {
-                let hw2 = instr & 0xFFFF;
-                if (instr >> 27) == 0b11110 && (hw2 & 0xD000) == 0x9000 {
-                    return Some(off);
-                }
-            }
-        }
-        None
-    }
-
-    fn find_string_xref(&self, target_str: &str) -> Option<usize> {
-        self.find_string_xref_inner(target_str)
-    }
-
-    fn find_function_start_from_off(&self, offset: usize) -> Option<usize> {
-        self.find_function_start(offset)
-    }
-
-    fn data(&self) -> &[u8] {
-        &self.data
     }
 }
