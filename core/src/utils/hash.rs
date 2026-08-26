@@ -12,7 +12,7 @@ pub enum HashType {
     Md5,
     Sha1,
     Sha256,
-    Unknown, // For reference
+    Unknown,
 }
 
 pub fn hash(hash_type: HashType, data: &[u8]) -> Vec<u8> {

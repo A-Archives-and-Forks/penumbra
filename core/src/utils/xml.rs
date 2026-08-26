@@ -12,17 +12,18 @@ pub fn get_tag<T>(xml: &str, path: &str) -> Result<T>
 where
     T: FromStr,
 {
-    let root = simple_xml::from_string(xml).map_err(|_| Error::penumbra("XML parsing error"))?;
+    let root =
+        simple_xml::from_string(xml).map_err(|_| Error::ParseError("XML parsing error".into()))?;
 
     let mut node = &root;
     for subnode in path.split('/') {
         let sub_nodes = node.get_nodes(subnode);
 
-        let sub_nodes =
-            sub_nodes.ok_or_else(|| Error::penumbra(format!("XML tag `{}` not found", subnode)))?;
+        let sub_nodes = sub_nodes
+            .ok_or_else(|| Error::ParseError(format!("XML tag `{}` not found", subnode)))?;
 
         if sub_nodes.is_empty() {
-            return Err(Error::penumbra(format!("XML tag `{}` empty", subnode)));
+            return Err(Error::ParseError(format!("XML tag `{}` empty", subnode)));
         }
 
         node = &sub_nodes[0];
@@ -31,7 +32,7 @@ where
     node.content
         .trim()
         .parse::<T>()
-        .map_err(|_| Error::penumbra(format!("Failed to parse XML tag `{}`", path)))
+        .map_err(|_| Error::ParseError(format!("Failed to parse XML tag `{}`", path)))
 }
 
 pub fn get_tag_usize(xml: &str, path: &str) -> Result<usize> {
@@ -40,5 +41,5 @@ pub fn get_tag_usize(xml: &str, path: &str) -> Result<usize> {
     let trimmed = raw_value.trim_start_matches("0x");
 
     usize::from_str_radix(trimmed, 16)
-        .map_err(|_| Error::penumbra(format!("Failed to parse hex XML tag `{}`", path)))
+        .map_err(|_| Error::ParseError(format!("Failed to parse hex XML tag `{}`", path)))
 }

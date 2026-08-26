@@ -8,8 +8,8 @@ use rand::rngs::OsRng;
 use sha2::{Digest, Sha256};
 
 pub struct RsaPrivateKey {
-    pub n: BigUint,
-    pub d: BigUint,
+    n: BigUint,
+    d: BigUint,
 }
 
 impl RsaPrivateKey {
@@ -71,6 +71,19 @@ pub fn oaep_encode(message: &[u8], k: usize) -> Vec<u8> {
     em
 }
 
+pub fn pkcs1_encode(message: &[u8], k: usize) -> Vec<u8> {
+    let ps_len = k - message.len() - 3;
+    let mut em = Vec::with_capacity(k);
+
+    em.push(0x00);
+    em.push(0x01);
+    em.extend(vec![0xFF; ps_len]);
+    em.push(0x00);
+    em.extend_from_slice(message);
+
+    em
+}
+
 pub fn rsa_private_encrypt(encoded: &[u8], n: &BigUint, exp: &BigUint) -> Vec<u8> {
     let m = BigUint::from_bytes_be(encoded);
     let c = m.modpow(exp, n);
@@ -88,5 +101,11 @@ pub fn rsa_private_encrypt(encoded: &[u8], n: &BigUint, exp: &BigUint) -> Vec<u8
 pub fn rsa_oaep_encrypt(message: &[u8], n: &BigUint, exp: &BigUint) -> Vec<u8> {
     let k = n.bits().div_ceil(8);
     let encoded = oaep_encode(message, k as usize);
+    rsa_private_encrypt(&encoded, n, exp)
+}
+
+pub fn rsa_pkcs1_encrypt(message: &[u8], n: &BigUint, exp: &BigUint) -> Vec<u8> {
+    let k = n.bits().div_ceil(8) as usize;
+    let encoded = pkcs1_encode(message, k);
     rsa_private_encrypt(&encoded, n, exp)
 }
