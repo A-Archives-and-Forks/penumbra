@@ -9,6 +9,7 @@ use ratatui::style::{Color, Modifier, Style};
 mod catpuccin;
 mod froggy;
 mod gruvbox;
+mod penumbra;
 mod rose_pine;
 
 pub type ThemeConstructor = fn() -> Theme;
@@ -104,6 +105,7 @@ pub fn load_themes() -> ThemeRegistry {
     themes.insert("gruvbox_light", gruvbox::gruvbox_light);
     themes.insert("gruvbox_dark", gruvbox::gruvbox_dark);
     themes.insert("catppuccin_mocha", catpuccin::catppuccin_mocha);
+    themes.insert("penumbra", penumbra::penumbra);
     themes.insert("froggy", froggy::froggy_dark);
 
     themes
