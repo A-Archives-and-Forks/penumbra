@@ -1,22 +1,24 @@
 /*
-    SPDX-License-Identifier: GPL-3.0-or-later
+    SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
-
-    Derived from:
-    https://github.com/bkerler/mtkclient/blob/main/mtkclient/Library/DA/xflash/xflash_param.py
-    Original SPDX-License-Identifier: GPL-3.0-or-later
-    Original SPDX-FileCopyrightText: 2018–2024 bkerler
-
-    This file remains under the GPL-3.0-or-later license.
-    However, as part of a larger project licensed under the AGPL-3.0-or-later,
-    the combined work is subject to the networking terms of the AGPL-3.0-or-later,
-    as for term 13 of the GPL-3.0-or-later license.
 */
+
+use crate::traits::ToBytes;
+
+/// Commands for XFlash protocol.
+/// XFlash commands are categorised in 5 groups:
+/// - 0x01xxxx: Main commands (Also known as Major commands)
+/// - 0x02xxxx: Set commands
+/// - 0x04xxxx: Get commands
+/// - 0x08xxxx: Action commands
+/// - 0x0Exxxx: Control commands
+///
+/// Extensions are penumbra specific commands, not part of the original
+/// protocol, and are categorised in 0x0Fxxxx range.
 #[repr(u32)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum Cmd {
-    Magic = 0xFEEEEEEF,
     SyncSignal = 0x434E5953,
 
     Unknown = 0x010000,
@@ -110,10 +112,13 @@ pub enum Cmd {
     ExtRpmbWrite = 0x0F000A,
 }
 
-#[repr(u32)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum DataType {
-    ProtocolFlow = 1,
-    Message = 2,
+impl ToBytes for Cmd {
+    type Output = [u8; 4];
+
+    const SIZE: usize = size_of::<u32>();
+
+    fn to_bytes(&self) -> Self::Output {
+        let cmd = *self as u32;
+        cmd.to_le_bytes()
+    }
 }
