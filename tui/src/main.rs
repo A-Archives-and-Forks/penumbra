@@ -14,6 +14,7 @@ mod pages;
 #[cfg(feature = "tui")]
 mod themes;
 
+mod auth;
 mod cli;
 mod config;
 mod helpers;
