@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use ratatui::style::{Color, Modifier, Style};
 
-// Themes
+mod catpuccin;
 mod gruvbox;
 mod rose_pine;
 
@@ -102,6 +102,7 @@ pub fn load_themes() -> ThemeRegistry {
     themes.insert("rose_pine_moon", rose_pine::rose_pine_moon);
     themes.insert("gruvbox_light", gruvbox::gruvbox_light);
     themes.insert("gruvbox_dark", gruvbox::gruvbox_dark);
+    themes.insert("catppuccin_mocha", catpuccin::catppuccin_mocha);
 
     themes
 }
