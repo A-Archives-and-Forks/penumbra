@@ -23,20 +23,6 @@ struct CmdMeta {
     version: String,
 }
 
-/// Macro to derive XmlCommand trait for a struct
-///
-/// Usage:
-/// #[derive(XmlCommand)]
-/// #[xmlcmd(name = "EXT-SEJ", version = "2.0")]
-/// struct ExtRunSej {
-///     #[xml(tag = "anti_clone")]
-///     anti_clone: String,
-///     #[xml(tag = "data"), fmt = "0x{data:x}"]
-///     data: u64,
-///     #[xml(tag = "length"), fmt = "{length}"]
-///     length: u32,
-/// }
-#[proc_macro_derive(XmlCommand, attributes(xmlcmd, xml))]
 pub fn xmlcmd_derive(input: TokenStream) -> TokenStream {
     let parsed = parse_macro_input!(input as DeriveInput);
     let name = &parsed.ident;
