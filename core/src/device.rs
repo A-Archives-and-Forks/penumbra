@@ -263,6 +263,23 @@ impl<'a, P: MtkPort> Device<'a, P> {
             && let Some(auth) = &self.auth_data
         {
             pl.send_auth(auth)?;
+            if devinfo.sla_enabled() {
+                let file = GfhFile::try_read(auth)?;
+
+                let Some(GfhKind::ToolAuth(tool_auth)) = file.get_gfh(GfhType::ToolAuth) else {
+                    return Err(PenumbraError::InvalidAuthFile.into());
+                };
+
+                let sla_pubk: &[u8] = tool_auth.sla_public_key.n_key();
+
+                // If we have exploits enabled, we can ignore the result of the SLA challenge since
+                // we can bypass it in some cases, and if the latter fails, we can't continue
+                // anyway and we'll get an error about SLA during DA upload.
+                #[cfg(feature = "exploits")]
+                pl.sla_challenge(sla_pubk).ok();
+                #[cfg(not(feature = "exploits"))]
+                pl.sla_challenge(sla_pubk)?;
+            }
         }
 
         self.devinfo = devinfo;
