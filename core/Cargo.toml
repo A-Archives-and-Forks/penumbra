@@ -14,12 +14,8 @@ for flashing firmware, readback, bootloader unlocking, and more.
 keywords = ["MediaTek", "flashing", "bootloader", "android"]
 
 [dependencies]
-aes = "0.8.4"
 bilge = "0.3.0"
-cbc = "0.1.2"
-cipher = "0.4.4"
 crc32fast = "1.5.0"
-downcast-rs = "2.0.2"
 enum_dispatch = "0.3.13"
 hex = "0.4.3"
 log = "0.4.27"
