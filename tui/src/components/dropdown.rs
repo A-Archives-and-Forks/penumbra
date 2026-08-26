@@ -129,7 +129,7 @@ impl Component for Dropdown {
             x: box_area.x,
             y: box_area.y + box_area.height,
             width: box_area.width,
-            height: list_height + 2,
+            height: list_height.saturating_add(2),
         };
 
         Clear.render(list_area, buf);

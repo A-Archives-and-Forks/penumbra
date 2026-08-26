@@ -165,18 +165,18 @@ impl<F: FormField> FormPage<F> {
             let mut v_y = 0u16;
 
             for section in &self.sections {
-                let section_height = (section.items.len() as u16 * 4) + 2;
-                let inner_v_y = v_y + 1;
+                let section_height = (section.items.len() as u16 * 4).saturating_add(2);
+                let inner_v_y = v_y.saturating_add(1);
 
                 for (local_idx, _) in section.items.iter().enumerate() {
                     let item_v_y = inner_v_y + (local_idx as u16 * 4);
                     if global_idx == self.selected_index() {
                         target_top = item_v_y;
-                        target_bottom = item_v_y + 4;
+                        target_bottom = item_v_y.saturating_add(4);
                     }
                     global_idx += 1;
                 }
-                v_y += section_height + 1;
+                v_y += section_height.saturating_add(1);
             }
 
             let back_v_y = v_y;
@@ -205,7 +205,7 @@ impl<F: FormField> FormPage<F> {
             let mut current_v_y = 0u16;
 
             for section in &mut self.sections {
-                let section_height = (section.items.len() as u16 * 4) + 2;
+                let section_height = (section.items.len() as u16 * 4).saturating_add(2);
                 let section_area = get_scrollable_rect(
                     current_v_y,
                     section_height,
@@ -223,7 +223,7 @@ impl<F: FormField> FormPage<F> {
                         .render(section_area, buf);
                 }
 
-                let inner_v_y = current_v_y + 1;
+                let inner_v_y = current_v_y.saturating_add(1);
                 let inner_x = list_center.x.saturating_add(1);
                 let inner_width = list_center.width.saturating_sub(4);
 
@@ -267,7 +267,7 @@ impl<F: FormField> FormPage<F> {
                     }
                     global_idx += 1;
                 }
-                current_v_y += section_height + 1;
+                current_v_y += section_height.saturating_add(1);
             }
 
             let back_area = get_scrollable_rect(
@@ -293,7 +293,7 @@ impl<F: FormField> FormPage<F> {
 
             current_v_y = 0;
             for section in &mut self.sections {
-                let inner_v_y = current_v_y + 1;
+                let inner_v_y = current_v_y.saturating_add(1);
                 for (local_idx, item) in section.items.iter_mut().enumerate() {
                     let item_v_y = inner_v_y + (local_idx as u16 * 4);
                     let item_area = get_scrollable_rect(
@@ -317,8 +317,8 @@ impl<F: FormField> FormPage<F> {
                         item.field.render_overlay(overlay_area, buf, theme);
                     }
                 }
-                let section_height = (section.items.len() as u16 * 4) + 2;
-                current_v_y += section_height + 1;
+                let section_height = (section.items.len() as u16 * 4).saturating_add(2);
+                current_v_y += section_height.saturating_add(1);
             }
         });
     }
