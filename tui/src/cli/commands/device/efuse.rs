@@ -81,10 +81,13 @@ impl DeviceCommand for EfuseArgs {
 
                 if !iamawareoftherisks {
                     error!(
-                        "If you REALLY know what you're doing, add the --iamawareoftherisks flag to confirm your understanding of the risks."
+                        "No support will be provided for any issues arising from writing eFuses. Proceed at your own risk."
                     );
                     error!(
-                        "No support will be provided for any issues arising from writing eFuses. Proceed at your own risk."
+                        "Authors are not responsible for any damage caused during the process, nor will liability be accepted for issues arising from writing eFuses."
+                    );
+                    error!(
+                        "If you REALLY know what you're doing, add the --iamawareoftherisks flag to confirm your understanding of the risks."
                     );
                     bail!("eFuse write aborted: missing --iamawareoftherisks flag");
                 }
