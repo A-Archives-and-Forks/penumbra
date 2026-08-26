@@ -2,7 +2,10 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
 */
-pub mod core;
+#![feature(trait_alias)]
+
+pub mod activity;
+mod auth;
 pub mod da;
 pub mod device;
 pub mod error;
@@ -18,6 +21,7 @@ pub use core::storage::{
     EmmcPartition,
 pub mod port;
 mod preloader;
+pub mod storage;
     Gpt,
     Partition,
     PartitionKind,
