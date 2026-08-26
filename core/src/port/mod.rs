@@ -18,8 +18,10 @@ pub const MIN_TIMEOUT: Duration = Duration::from_millis(1000);
 pub const MAX_TIMEOUT: Duration = Duration::from_millis(10000);
 /// Maximum time to wait for the port to open to let it settle.
 /// On Linux, the port may take a while to be accessible depending on udev rules.
+#[allow(dead_code)]
 const PORT_OPEN_TIMEOUT: Duration = Duration::from_millis(1500);
 /// Poll time to retry opening the port.
+#[allow(dead_code)]
 const PORT_RETRY_INTERVAL: Duration = Duration::from_millis(50);
 
 /// List of all ports available for connecting and what mode they refer to.

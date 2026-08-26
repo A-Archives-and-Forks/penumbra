@@ -4,6 +4,7 @@ members = [
     "core",
     "tui"
 ]
+default-members = ["tui"]
 
 [workspace.package]
 edition = "2024"

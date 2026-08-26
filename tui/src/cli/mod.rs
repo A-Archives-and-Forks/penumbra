@@ -43,8 +43,10 @@ pub struct CliArgs {
                 .map(|s| match s.to_lowercase().as_str() {
 
                     "auto" => PortBackend::Auto,
+                    #[cfg(not(target_os = "android"))]
                     "usb" => PortBackend::Usb,
                     "libusb" => PortBackend::Libusb,
+                    #[cfg(not(target_os = "android"))]
                     "serial" => PortBackend::Serial,
                     _ => PortBackend::Auto,
                 })
