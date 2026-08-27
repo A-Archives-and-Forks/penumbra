@@ -153,7 +153,8 @@ cli_commands! {
         GetActiveSlot(GetActiveSlotArgs),
         Keys(KeysArgs),
         Efuse(EfuseArgs),
-        Crash(CrashArgs)
+        Crash(CrashArgs),
+        BootPl(BootPlArgs),
     }
     cli {
         PatchDa(PatchDaArgs),

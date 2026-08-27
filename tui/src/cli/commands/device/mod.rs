@@ -2,6 +2,7 @@
     SPDX-License-Identifier: AGPL-3.0-or-later
     SPDX-FileCopyrightText: 2025-2026 Shomy
 */
+pub mod bootpl;
 pub mod crash;
 pub mod download;
 pub mod efuse;
@@ -30,6 +31,7 @@ pub mod writeflash;
 pub mod writeoffset;
 pub mod xflash;
 
+pub use bootpl::BootPlArgs;
 pub use crash::CrashArgs;
 pub use download::DownloadArgs;
 pub use efuse::EfuseArgs;
