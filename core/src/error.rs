@@ -196,6 +196,8 @@ pub enum PenumbraError {
 pub enum ExploitError {
     #[error("Device is not vulnerable to this exploit")]
     NotVulnerable,
+    #[error("This exploit requires another BootMode than the current one")]
+    WrongBootMode,
     #[error("Kamakiri error: {0}")]
     Kamakiri(#[from] KamakiriError),
     #[error("Carbonara error: {0}")]
