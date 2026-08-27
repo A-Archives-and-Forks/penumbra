@@ -307,6 +307,13 @@ impl Xml {
         // Wait for the device to initialize DRAM
         xmlcmd_p!(self, port, NotifyInitHw)?;
 
+        // New DAs can have SLA in DA1 as well.
+        match self.handle_sla(port, da) {
+            Err(Error::Xml(err)) if err.kind == XmlErrorKind::UnsupportedCmd => {}
+            Err(e) => return Err(e),
+            Ok(()) => {}
+        }
+
         Ok(true)
     }
 
