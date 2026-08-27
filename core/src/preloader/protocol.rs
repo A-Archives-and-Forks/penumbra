@@ -401,4 +401,19 @@ impl<'a, P: MtkPort> PlProtocol<'a, P> {
 
         Ok(())
     }
+
+    #[cfg(feature = "exploits")]
+    pub fn exploit(&mut self) -> Result<bool> {
+        use crate::exploit::{ExploitExt, Linecode};
+
+        let cfg = self.get_target_config()?;
+
+        if cfg == 0 {
+            return Ok(true);
+        }
+
+        let success = Linecode.trigger(self.port)?;
+
+        Ok(success)
+    }
 }
