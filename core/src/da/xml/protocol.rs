@@ -301,7 +301,7 @@ impl Xml {
         };
 
         xmlcmd_e!(self, port, SetRuntimeParameter, log_level, channel, system_os)?;
-        xmlcmd_e!(self, port, HostSupportedCommands)?;
+        xmlcmd_e!(self, port, HostSupportedCommands).ok();
         xmlcmd_e!(self, port, SetHostInfo, format!("Penumbra v{}", VERSION))?;
 
         // Wait for the device to initialize DRAM
@@ -896,7 +896,11 @@ impl DownloadProtocol for Xml {
     }
 
     fn handle_sla<P: MtkPort>(&mut self, port: &mut P, da: &DaEntry) -> Result<()> {
-        xmlcmd!(self, port, GetSysProperty, "DA.SLA")?;
+        match xmlcmd!(self, port, GetSysProperty, "DA.SLA") {
+            Err(Error::Xml(err)) if err.kind == XmlErrorKind::UnsupportedCmd => return Ok(()),
+            Err(e) => return Err(e),
+            Ok(_) => {}
+        }
 
         let response = self.get_upload_file_resp(port)?;
         self.lifetime_ack(port, XmlCmdLifetime::CmdEnd)?;
