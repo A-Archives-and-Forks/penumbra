@@ -5,6 +5,21 @@
 Penumbra is a Rust crate and tool for interacting with Mediatek devices.<br>
 It provides flashing and readback capabilities, as well as bootloader unlocking and relocking on vulnerable devices.<br>
 
+
+## Features
+
+* Flashing, readback and erase of partitions
+* Support for both V5 (XFlash) and V6 (XML) devices
+* CLI and a TUI
+* Scatter file flashing
+
+Furthermore, on vulnerable devices, the following features are also supported:
+
+* Bootloader unlocking and relocking on vulnerable devices
+* RPMB operations (read/write/erase, EMMC only for now)
+* Arbitrary memory read/write
+* ..and more!
+
 ## Requirements
 
 * On Windows, you'll need to install MediaTek VCOM drivers. For using `linecode` exploit (also known as Kamakiri2), you'll need to install either `libusb` or `WinUSB` drivers with [Zadig](https://zadig.akeo.ie/).
@@ -12,62 +27,12 @@ It provides flashing and readback capabilities, as well as bootloader unlocking 
 
 ## Usage
 
-Penumbra can be used both as a crate for interacting directly with a device with your own code, as well as providing a CLI and (preliminary) [TUI](tui).
+Penumbra can be used both as a crate for interacting directly with a device with your own code, as well as providing a CLI and [TUI](tui).
 
+For learning how to use the TUI, [read the documentation here](https://penumbra.itssho.my/Penumbra/Antumbra/TUI)
 For using the CLI, [read the documentation with all commands here](https://penumbra.itssho.my/Penumbra/Antumbra/CLI)
 
-For using the crate, use the device API:
-
-```rs
-use std::fs::File;
-use std::io::{BufWriter, Write};
-
-use anyhow::Result;
-use penumbra::{DeviceBuilder, find_mtk_port, LockFlag};
-
-fn main() -> Result<()> {
-    env_logger::init();
-
-    let da_path = std::path::Path::new("../DA_penangf.bin");
-    let da_data = std::fs::read(da_path).expect("Failed to read DA file");
-
-    let vid = Some(0x0E8D);
-    let pid = Some(0x2000);
-    
-    let mtk_port = PortType::find_device(vid, pid, PortBackend::Auto)
-        .expect("Port should open")
-        .ok_or("No MTK port found")?;
-
-    println!("Found MTK port: {}", mtk_port.get_port_name());
-
-    let mut device = DeviceBuilder::new(mtk_port)
-        .with_da_data(da_data)
-        .build()?;
-
-    // Init the device (Handshake and populate dev info)
-    device.init()?;
-
-    let tgt_cfg = device.dev_info.target_config();
-    println!("SBC: {}", (tgt_cfg & 0x1) != 0);
-
-    // This will automatically enter DA mode. Seccfg unlock only works if the device can load extensions / is vulnerable
-    device.set_seccfg_lock_state(LockFlag::Unlock)?;
-
-    // Ignore progress for now
-    let mut progress = |read: u64, total: u64| {
-        println!("Progress: {}/{}", read, total);
-    };
-
-    let file = File::create("lk_a.bin")?;
-    let mut writer = BufWriter::new(file);
-
-    device.read_partition("lk_a", &mut progress, &mut writer)?;
-
-    writer.flush()?;
-
-    Ok(())
-}
-```
+For using the crate, a brief introduction is provided in the [crate documentation](https://penumbra.itssho.my/Penumbra/Crate/index).
 
 ### Debug logs
 
@@ -103,7 +68,7 @@ TUI:
 * [x] Make better key bindings
 
 CLI:
-* [ ] Add plstage
+* [x] Add plstage
 * [x] Add Read Offset, Write Offset and Erase Offset commands
 * [x] Add register read/write commands
 
