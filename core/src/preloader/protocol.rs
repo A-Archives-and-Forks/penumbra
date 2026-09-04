@@ -363,6 +363,8 @@ impl<'a, P: MtkPort> PlProtocol<'a, P> {
             return Err(AuthError::NoSignerAvailable.into());
         }
 
+        let soc_id = self.get_soc_id().unwrap_or_default().to_vec();
+
         self.echo(&[Command::SlaChallenge as u8], 1)?;
 
         status_ok!(self);
@@ -373,7 +375,7 @@ impl<'a, P: MtkPort> PlProtocol<'a, P> {
 
         debug!("Brom Sla challenge, length: {}", length);
 
-        let sign_data = SignData { raw: buffer, ..Default::default() };
+        let sign_data = SignData { raw: buffer, soc_id, ..Default::default() };
 
         let req = SignRequest {
             pubk_mod: pubk_mod.to_vec(),
