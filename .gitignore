@@ -52,3 +52,4 @@ scripts/*.img
 
 /vendor
 /.cargo
+result
