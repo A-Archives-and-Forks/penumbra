@@ -159,6 +159,15 @@ where
         let resp = xml.read_data(port)?;
         if memmem::find(&resp, CMD_END).is_some() {
             xml.ack(port, None)?;
+
+            let resp = String::from_utf8_lossy(&resp);
+            let result = get_tag::<String>(&resp, "result")?;
+
+            if result != "OK" {
+                let err_msg = get_tag::<String>(&resp, "arg/message").unwrap_or_default();
+                return Err(XmlErrorKind::Other(err_msg).into());
+            }
+
             break;
         }
 
