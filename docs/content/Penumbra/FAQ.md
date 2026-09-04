@@ -9,6 +9,13 @@ It's like a backend.
 [[Antumbra]] is a CLI and TUI written in Rust, and used [[Penumbra]] as its backend.
 It's like a frontend.
 
+### I get an error about "No signer available" during DA upload or during DA SLA challenge
+
+Your device needs additional auth to proceed. Without exploits, this means that most of the times you'll need paid auth.
+While penumbra includes some SLA keys, they are not enough to cover all devices, especially Xiaomi, OnePlus and some other OEMs.
+
+THIS IS NOT A BUG! You should not report this, rather look elsewhere for auth.
+
 ### I get error 0x7017 / 0x7024 on my device when trying to upload DA1
 
 This means your device has DAA on!
@@ -40,7 +47,7 @@ Unfortunately, you'll also need paid auth too for this.
 
 If you're on Linux, try setting up your udev rules and running as sudo.
 
-If you're on Windows, you'll need ot fight with your OS a bit more, and install the proper driver. Generally, you can use either WinUSB or LibUSB if you need `Linecode` exploit, or stick to stock MediaTek USB drivers. For USB, I suggest using [Zadig](https://zadig.akeo.ie/).
+If you're on Windows, you'll need ot fight with your OS a bit more, and install the proper driver. Generally, you can use either WinUSB or LibUSB if you need `Linecode` exploit, or stick to stock MediaTek USB drivers otherwise. For USB, I suggest using [Zadig](https://zadig.akeo.ie/).
 
 ### Where can I ask questions?
 
