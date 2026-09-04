@@ -25,6 +25,8 @@ Furthermore, on vulnerable devices, the following features are also supported:
 * On Windows, you'll need to install MediaTek VCOM drivers. For using `linecode` exploit (also known as Kamakiri2), you'll need to install either `libusb` or `WinUSB` drivers with [Zadig](https://zadig.akeo.ie/).
 * On Linux you'll need to install `libudev` and add your user to the `dialout` group. In case Penumbra doesn't recognize the device, run with sudo or allow access to the device with udev rules.
 
+For more details, check the [installation guide](https://penumbra.itssho.my/Penumbra/Antumbra/Install).
+
 ## Usage
 
 Penumbra can be used both as a crate for interacting directly with a device with your own code, as well as providing a CLI and [TUI](tui).
