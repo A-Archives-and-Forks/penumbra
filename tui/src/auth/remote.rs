@@ -205,7 +205,7 @@ impl RemoteSigner {
 
     fn login_with_credentials(&self, username: &str, password: &str) -> Option<AuthState> {
         let req_body = LoginRequest { username, password };
-        let mut res = self.post_json("/api/auth/login", None, &req_body).unwrap();
+        let mut res = self.post_json("/api/auth/login", None, &req_body).ok()?;
 
         if res.status().is_success()
             && let Ok(tokens) = res.body_mut().read_json::<TokenResponse>()
