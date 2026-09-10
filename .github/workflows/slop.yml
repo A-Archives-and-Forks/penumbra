@@ -11,15 +11,13 @@ jobs:
       pull-requests: write
       contents: read
     steps:
-      - name: Checkout PR code
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
-
       - name: Scan
         id: search
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
         run: |
-          if grep -rni --exclude="CONTRIBUTING.md" --exclude-dir=".github" "5L0P-F1NG3RPR1NT" .; then
+          if gh pr diff "$PR_URL" | grep -q "5L0P-F1NG3RPR1NT"; then
             echo "detected=true" >> $GITHUB_OUTPUT
           else
             echo "detected=false" >> $GITHUB_OUTPUT
